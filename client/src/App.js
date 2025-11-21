@@ -25,7 +25,10 @@ function App() {
       <div style={{ marginTop: "85px" }}>
         <Routes>
           <Route path="/" element={<MainPage user={user} />} />
-          <Route path="/login" element={<Login />} />
+          <Route 
+            path="/login" 
+            element={<Login setUser={setUser} />} 
+          />
           <Route path="/registro" element={<Registro />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/historial" element={<Historial />} />
