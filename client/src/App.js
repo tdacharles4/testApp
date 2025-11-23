@@ -8,9 +8,11 @@ import Registro from "./pages/Registro.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Historial from "./pages/Historial.jsx";
 import Inventario from "./pages/Inventario.jsx";
+import CrearTienda from "./pages/CrearTienda.jsx";
 
 // Components
 import TopBar from "./components/TopBar.jsx";
+import RequireAdmin from "./components/RequireAdmin.jsx";
 
 //import logo from './logo.svg';
 import './App.css';
@@ -33,6 +35,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/historial" element={<Historial />} />
           <Route path="/inventario" element={<Inventario />} />
+          <Route path="/crearTienda" element={<RequireAdmin user={user}> <CrearTienda /> </RequireAdmin>} />
         </Routes>
       </div>
     </>

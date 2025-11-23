@@ -30,6 +30,18 @@ export default function MainPage({user}) {
           Inventario
         </button>
 
+        {user?.role === "admin" && (
+          <>
+            <button className="main-btn" onClick={() => navigate("/crearTienda")}>
+              Crear Tienda
+            </button>
+
+            <button className="main-btn" onClick={() => navigate("/crearPerfilUsuario")}>
+              Crear Perfil de Usuario
+            </button>
+          </>
+        )}
+
         {/*End Button Grid*/}
       </div>
 

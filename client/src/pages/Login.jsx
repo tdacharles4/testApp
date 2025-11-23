@@ -25,7 +25,6 @@ export default function LoginPage({ setUser }) {
       return;
     }
 
-    // 🔥 Aquí estaba el problema — faltaba actualizar user global
     setUser(data.user);
 
     navigate("/");
