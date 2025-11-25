@@ -1,33 +1,52 @@
 import Tienda from "../models/Tienda.js";
 
-async function createStore(req, res) {
+const createStore = async (req, res) => {
+
   try {
     const { storeName, storeTag } = req.body;
 
-    const productNames = req.body.productNames;
+    const productClaves = req.body.productClaves;  // updated name
     const productImages = req.files;
+
+    if (!storeTag || storeTag.length > 4) {
+      return res.status(400).json({ error: "Tag inválido (máx 4 letras)" });
+    }
+
+    const normalizedTag = storeTag.toUpperCase();
+
+    // Prevent duplicate store
+    const exists = await Tienda.findOne({ tag: normalizedTag });
+    if (exists) {
+      return res.status(400).json({ error: "Ese tag de tienda ya existe" });
+    }
 
     const products = [];
 
-    for (let i = 0; i < productImages.length; i++) {
+    for (let i = 0; i < productClaves.length; i++) {
+      const claveInput = productClaves[i].toUpperCase();
+      const finalClave = `${normalizedTag}-${claveInput}`;
+
       products.push({
-        name: Array.isArray(productNames) ? productNames[i] : productNames,
-        imageUrl: `/uploads/${productImages[i].filename}`,
+        clave: finalClave,
+        name: claveInput,
+        imageUrl: `/uploads/${productImages[i]?.filename || ""}`
       });
     }
 
     const tienda = await Tienda.create({
+      tag: normalizedTag,
       name: storeName,
-      tag: storeTag,
       products,
-      createdBy: req.user._id,
+      createdBy: req.user._id
     });
 
     res.json({ message: "Tienda creada", tienda });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error interno" });
   }
-}
+};
 
 export default { createStore };
+
