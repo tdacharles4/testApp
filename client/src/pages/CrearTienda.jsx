@@ -32,16 +32,24 @@ export default function CrearTienda() {
       form.append("storeName", storeName);
       form.append("storeTag", storeTag);
 
-      products.forEach((p, i) => {
+      products.forEach((p) => {
         if (p.image) {
           form.append("productImages", p.image);
-          form.append("productNames", p.name);
+          form.append("productClaves[]", p.name); // IMPORTANT
         }
       });
 
-      const res = await axios.post("http://localhost:3001/api/tiendas",
+      const token = localStorage.getItem("token");
+
+      const res = await axios.post(
+        "http://localhost:5000/api/tiendas",
         form,
-        { headers: { "Content-Type": "multipart/form-data" }}
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`
+          }
+        }
       );
 
       alert("Tienda creada exitosamente");
@@ -63,7 +71,7 @@ export default function CrearTienda() {
         className="border p-2 w-full mb-4"
       />
 
-      <label>Tag de Tienda</label>
+      <label>Clave unica de Tienda</label>
       <input
         type="text"
         value={storeTag}
@@ -83,7 +91,7 @@ export default function CrearTienda() {
             className="block mb-2"
           />
 
-          <label>Nombre del producto</label>
+          <label>Clave unica de producto</label>
           <input
             type="text"
             value={p.name}

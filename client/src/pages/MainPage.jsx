@@ -15,7 +15,7 @@ export default function MainPage({user}) {
           disabled={!user}
           onClick={() => user && navigate("/registro")}
         >
-          Registro
+          Registrar Venta
         </button>
 
         <button className="main-btn" onClick={() => navigate("/dashboard")}>

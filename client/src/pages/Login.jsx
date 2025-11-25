@@ -9,31 +9,34 @@ export default function LoginPage({ setUser }) {
   const [error, setError] = useState("");
 
   async function handleLogin(e) {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    const res = await fetch("http://localhost:5000/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    try {
+      const res = await fetch("http://localhost:5000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.message || "Error en login");
-      return;
+      if (!res.ok) {
+        setError(data.message || "Error en login");
+        return;
+      }
+
+      // ✅ Store token
+      localStorage.setItem("token", data.token);
+
+      // Store user in React state
+      setUser(data.user);
+
+      navigate("/");
+    } catch (err) {
+      console.error(err);
+      setError("No se pudo conectar al servidor");
     }
-
-    setUser(data.user);
-
-    navigate("/");
-
-  } catch (err) {
-    console.error(err);
-    setError("No se pudo conectar al servidor");
   }
-}
 
   return (
     <div className="login-wrapper">
