@@ -1,17 +1,18 @@
 import mongoose from "mongoose";
 
 const ProductSchema = new mongoose.Schema({
-  clave: {
-    type: String,
+  clave: String,
+  name: String,
+  imageUrl: String,
+  quantity: {
+    type: Number,
     required: true,
-    unique: true
+    default: 0
   },
-  name: {
-    type: String,
-    required: true
-  },
-  imageUrl: {
-    type: String
+  price: {
+    type: Number,
+    required: true,
+    default: 0
   }
 });
 
@@ -28,6 +29,11 @@ const TiendaSchema = new mongoose.Schema({
     required: true,
     maxlength: 100
   },
+  description: {
+    type: String,
+    maxlength: 500
+  },
+  location: String,
   products: [ProductSchema],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

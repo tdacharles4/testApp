@@ -4,6 +4,7 @@ import cors from "cors";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import tiendaRoutes from "./routes/tiendaRoutes.js";
+import ventaRoutes from "./routes/ventaRoutes.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -26,6 +27,7 @@ connectDB();
 // routes
 app.use("/api", authRoutes);
 app.use("/api/tiendas", tiendaRoutes);
+app.use("/api/ventas", ventaRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.listen(5000, () => {

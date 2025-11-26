@@ -1,11 +1,12 @@
 import Tienda from "../models/Tienda.js";
 
 const createStore = async (req, res) => {
-
   try {
-    const { storeName, storeTag } = req.body;
+    const { storeName, storeTag, storeLocation, storeDescription } = req.body;
 
-    const productClaves = req.body.productClaves;  // updated name
+    const productClaves = req.body.productClaves || [];  // updated name
+    const productPrices = req.body.productPrices || [];
+    const productQuantities = req.body.productQuantities || [];
     const productImages = req.files;
 
     if (!storeTag || storeTag.length > 4) {
@@ -25,17 +26,25 @@ const createStore = async (req, res) => {
     for (let i = 0; i < productClaves.length; i++) {
       const claveInput = productClaves[i].toUpperCase();
       const finalClave = `${normalizedTag}-${claveInput}`;
+      
+      // Parse price and quantity with default values
+      const price = parseFloat(productPrices[i]) || 0;
+      const quantity = parseInt(productQuantities[i]) || 0;
 
       products.push({
         clave: finalClave,
         name: claveInput,
-        imageUrl: `/uploads/${productImages[i]?.filename || ""}`
+        imageUrl: `/uploads/${productImages[i]?.filename || ""}`,
+        price: price,
+        quantity: quantity
       });
     }
 
     const tienda = await Tienda.create({
       tag: normalizedTag,
       name: storeName,
+      location: storeLocation || "",
+      description: storeDescription || "",
       products,
       createdBy: req.user._id
     });
@@ -49,4 +58,3 @@ const createStore = async (req, res) => {
 };
 
 export default { createStore };
-
