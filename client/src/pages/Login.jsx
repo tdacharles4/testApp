@@ -30,7 +30,7 @@ export default function LoginPage({ setUser }) {
 
       // Store user in React state
       setUser(data.user);
-
+      localStorage.setItem("user", JSON.stringify(data.user));
       navigate("/");
     } catch (err) {
       console.error(err);

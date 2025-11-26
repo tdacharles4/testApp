@@ -10,6 +10,7 @@ export default function TopBar({ user, setUser }) {
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem("user");
     navigate("/");
   };
 

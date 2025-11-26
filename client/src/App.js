@@ -9,37 +9,82 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Historial from "./pages/Historial.jsx";
 import Inventario from "./pages/Inventario.jsx";
 import CrearTienda from "./pages/CrearTienda.jsx";
+import TiendaProfile from "./pages/TiendaProfile.jsx"; // Add this import
 
 // Components
 import TopBar from "./components/TopBar.jsx";
 import RequireAdmin from "./components/RequireAdmin.jsx";
 
-//import logo from './logo.svg';
 import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
+
   return (
     <BrowserRouter>
-    <>
-      <TopBar user={user} setUser={setUser}/>
+      <>
+        <TopBar user={user} setUser={setUser} />
 
-      <div style={{ marginTop: "85px" }}>
-        <Routes>
-          <Route path="/" element={<MainPage user={user} />} />
-          <Route 
-            path="/login" 
-            element={<Login setUser={setUser} />} 
-          />
-          <Route path="/registro" element={<Registro />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/historial" element={<Historial />} />
-          <Route path="/inventario" element={<Inventario />} />
-          <Route path="/crearTienda" element={<RequireAdmin user={user}> <CrearTienda /> </RequireAdmin>} />
-        </Routes>
-      </div>
-    </>
-  </BrowserRouter>
+        {/* GLOBAL CENTERING WRAPPER */}
+        <div
+          style={{
+            marginTop: "85px",
+            display: "flex",
+            justifyContent: "center",
+            width: "100%",
+          }}
+        >
+          {/* MAX WIDTH FOR ALL PAGES */}
+          <div style={{ width: "100%", maxWidth: "900px" }}>
+            <Routes>
+
+              <Route path="/" element={<MainPage user={user} />} />
+
+              <Route
+                path="/login"
+                element={<Login user={user} setUser={setUser} />}
+              />
+
+              <Route
+                path="/registro"
+                element={<Registro user={user} />}
+              />
+
+              <Route
+                path="/dashboard"
+                element={<Dashboard user={user} />}
+              />
+
+              <Route
+                path="/historial"
+                element={<Historial user={user} />}
+              />
+
+              <Route
+                path="/inventario"
+                element={<Inventario user={user} />}
+              />
+
+              <Route
+                path="/crearTienda"
+                element={
+                  <RequireAdmin user={user}>
+                    <CrearTienda user={user} />
+                  </RequireAdmin>
+                }
+              />
+
+              {/* Add the new store profile route */}
+              <Route
+                path="/:storeName"
+                element={<TiendaProfile user={user} />}
+              />
+
+            </Routes>
+          </div>
+        </div>
+      </>
+    </BrowserRouter>
   );
 }
 

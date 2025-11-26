@@ -23,7 +23,7 @@ export default function MainPage({user}) {
         </button>
 
         <button className="main-btn" onClick={() => navigate("/historial")}>
-          Historial
+          Historial de ventas
         </button>
 
         <button className="main-btn" onClick={() => navigate("/inventario")}>
