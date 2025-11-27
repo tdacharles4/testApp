@@ -3,11 +3,9 @@ import { useNavigate } from "react-router-dom";
 
 const Inventario = ({ user }) => {
   const [stores, setStores] = useState([]);
-  const [filteredStores, setFilteredStores] = useState([]);
-  const [expanded, setExpanded] = useState({});
+  const [allProducts, setAllProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [editingQuantity, setEditingQuantity] = useState(false);
-  const [tempQuantity, setTempQuantity] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
@@ -16,42 +14,67 @@ const Inventario = ({ user }) => {
       .then((res) => res.json())
       .then((data) => {
         setStores(data);
-        setFilteredStores(data);
+        
+        // Flatten all products from all stores
+        const products = data.flatMap(store => 
+          store.products?.map(product => ({
+            ...product,
+            storeName: store.name,
+            storeTag: store.tag,
+            storeId: store._id,
+            contractType: store.contractType,
+            contractValue: store.contractValue
+          })) || []
+        );
+        
+        setAllProducts(products);
+        setFilteredProducts(products);
       })
       .catch((err) => console.error(err));
   }, []);
 
   useEffect(() => {
-    const filtered = stores.filter(store =>
-      store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      store.tag.toLowerCase().includes(searchTerm.toLowerCase())
+    const filtered = allProducts.filter(product =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.clave.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.storeName.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    setFilteredStores(filtered);
-  }, [searchTerm, stores]);
-
-  const toggleExpand = (id) => {
-    setExpanded((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
+    setFilteredProducts(filtered);
+  }, [searchTerm, allProducts]);
 
   const closePreview = () => {
     setSelectedProduct(null);
   };
 
-  const handleStoreClick = (store) => {
-    const storeIdentifier = store.tag;
-    navigate(`/${storeIdentifier}`);
+  const handleStoreClick = (storeTag) => {
+    navigate(`/${storeTag}`);
   };
 
-  const calculateTotalItems = (store) => {
-    if (!store.products) return 0;
-    return store.products.reduce((total, product) => total + product.quantity, 0);
+  const calculateParticipacion = (product) => {
+    if (product.contractType === "Porcentaje" && product.contractValue) {
+      return 100 - parseFloat(product.contractValue);
+    }
+    return 100; // For DCE, Estetica, Piso
+  };
+
+  const calculateTotalParticipante = (product, participacion) => {
+    const price = parseFloat(product.price) || 0;
+    return (price * participacion) / 100;
+  };
+
+  const calculateTotalEstetica = (product, totalParticipante) => {
+    const price = parseFloat(product.price) || 0;
+    return price - totalParticipante;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-MX');
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
+    <div style={{ padding: "20px", maxWidth: "1400px", margin: "0 auto" }}>
       {/* Header */}
       <div style={{ marginBottom: "30px" }}>
         <h1 style={{ 
@@ -63,7 +86,7 @@ const Inventario = ({ user }) => {
           Inventario General
         </h1>
         <p style={{ color: "#666", margin: 0 }}>
-          Gestiona y visualiza el inventario de todas las tiendas
+          Vista global de todos los productos en todas las tiendas
         </p>
       </div>
 
@@ -78,11 +101,11 @@ const Inventario = ({ user }) => {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span style={{ fontWeight: "bold", color: "#333", minWidth: "120px" }}>
-            Buscar Tienda:
+            Buscar Producto:
           </span>
           <input
             type="text"
-            placeholder="Buscar por nombre o clave de tienda..."
+            placeholder="Buscar por producto, clave o tienda..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -153,15 +176,17 @@ const Inventario = ({ user }) => {
               {selectedProduct.name}
             </h3>
 
-            <img
-              src={`http://localhost:5000${selectedProduct.imageUrl}`}
-              alt="producto"
-              style={{
-                width: "100%",
-                borderRadius: "8px",
-                marginBottom: "15px"
-              }}
-            />
+            {selectedProduct.imageUrl && (
+              <img
+                src={`http://localhost:5000${selectedProduct.imageUrl}`}
+                alt="producto"
+                style={{
+                  width: "100%",
+                  borderRadius: "8px",
+                  marginBottom: "15px"
+                }}
+              />
+            )}
 
             {/* PRODUCT DETAILS */}
             <div style={{
@@ -194,130 +219,32 @@ const Inventario = ({ user }) => {
                 justifyContent: "space-between",
                 marginBottom: "8px"
               }}>
-                <strong>Cantidad:</strong>
-                <span style={{ 
-                  fontWeight: "bold",
-                  color: selectedProduct.quantity === 0 ? "#dc3545" : "#28a745"
-                }}>
-                  {editingQuantity ? tempQuantity : selectedProduct.quantity}
+                <strong>Tienda:</strong>
+                <span 
+                  style={{
+                    cursor: "pointer",
+                    color: "#007bff",
+                    textDecoration: "underline"
+                  }}
+                  onClick={() => handleStoreClick(selectedProduct.storeTag)}
+                >
+                  {selectedProduct.storeName}
                 </span>
               </div>
+              {selectedProduct.description && (
+                <div style={{ marginTop: "10px" }}>
+                  <strong>Descripción:</strong>
+                  <p style={{ 
+                    margin: "5px 0 0 0", 
+                    fontSize: "14px",
+                    color: "#666",
+                    lineHeight: "1.4"
+                  }}>
+                    {selectedProduct.description}
+                  </p>
+                </div>
+              )}
             </div>
-
-            {/* ADMIN-ONLY CONTROLS */}
-            {user?.role === "admin" && (
-              <div style={{ borderTop: "2px solid #f0f0f0", paddingTop: "15px" }}>
-                {!editingQuantity ? (
-                  <button
-                    style={{
-                      width: "100%",
-                      background: "#007bff",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      padding: "10px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "bold"
-                    }}
-                    onClick={() => {
-                      setEditingQuantity(true);
-                      setTempQuantity(selectedProduct.quantity);
-                    }}
-                  >
-                    Editar Cantidad
-                  </button>
-                ) : (
-                  <>
-                    <div style={{ 
-                      display: "flex", 
-                      justifyContent: "space-between", 
-                      alignItems: "center",
-                      marginBottom: "15px"
-                    }}>
-                      <button
-                        style={{
-                          background: "#6c757d",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          padding: "8px 15px",
-                          cursor: "pointer",
-                          fontSize: "18px",
-                          fontWeight: "bold"
-                        }}
-                        onClick={() => setTempQuantity(q => Math.max(0, q - 1))}
-                      >
-                        -
-                      </button>
-                      
-                      <span style={{ 
-                        fontSize: "18px", 
-                        fontWeight: "bold",
-                        color: "#333"
-                      }}>
-                        {tempQuantity}
-                      </span>
-                      
-                      <button
-                        style={{
-                          background: "#6c757d",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          padding: "8px 15px",
-                          cursor: "pointer",
-                          fontSize: "18px",
-                          fontWeight: "bold"
-                        }}
-                        onClick={() => setTempQuantity(q => q + 1)}
-                      >
-                        +
-                      </button>
-                    </div>
-                    
-                    <div style={{ display: "flex", gap: "10px" }}>
-                      <button
-                        style={{
-                          flex: 1,
-                          background: "#28a745",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          padding: "10px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          fontWeight: "bold"
-                        }}
-                        onClick={() => {
-                          selectedProduct.quantity = tempQuantity;
-                          setEditingQuantity(false);
-                        }}
-                      >
-                        Guardar
-                      </button>
-                      
-                      <button
-                        style={{
-                          flex: 1,
-                          background: "#6c757d",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          padding: "10px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          fontWeight: "bold"
-                        }}
-                        onClick={() => setEditingQuantity(false)}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -330,182 +257,284 @@ const Inventario = ({ user }) => {
             overflow: "hidden",
             boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
           }}>
-            <table style={{ 
-              width: "100%", 
-              borderCollapse: "collapse",
-              minWidth: "600px"
-            }}>
-              <thead>
-                <tr style={{ background: "#f8f9fa" }}>
-                  <th style={{ 
-                    padding: "15px", 
-                    textAlign: "left", 
-                    borderBottom: "2px solid #ddd",
-                    fontWeight: "bold",
-                    color: "#333"
-                  }}>
-                    Tienda
-                  </th>
-                  <th style={{ 
-                    padding: "15px", 
-                    textAlign: "center", 
-                    borderBottom: "2px solid #ddd",
-                    fontWeight: "bold",
-                    color: "#333"
-                  }}>
-                    Productos
-                  </th>
-                  <th style={{ 
-                    padding: "15px", 
-                    textAlign: "center", 
-                    borderBottom: "2px solid #ddd",
-                    fontWeight: "bold",
-                    color: "#333"
-                  }}>
-                    Items en Stock
-                  </th>
-                  <th style={{ 
-                    padding: "15px", 
-                    textAlign: "center", 
-                    borderBottom: "2px solid #ddd",
-                    fontWeight: "bold",
-                    color: "#333"
-                  }}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredStores.map((store, index) => (
-                  <React.Fragment key={store._id}>
-                    <tr style={{ 
-                      borderBottom: "1px solid #eee",
-                      backgroundColor: index % 2 === 0 ? "#fafafa" : "white"
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ 
+                width: "100%", 
+                borderCollapse: "collapse",
+                minWidth: "1200px"
+              }}>
+                <thead>
+                  <tr style={{ background: "#f8f9fa" }}>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "center", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
                     }}>
-                      <td style={{ padding: "15px" }}>
-                        <span 
-                          style={{
-                            cursor: "pointer",
-                            color: "#007bff",
-                            fontWeight: "bold",
-                            fontSize: "16px"
-                          }}
-                          onClick={() => handleStoreClick(store)}
-                          onMouseEnter={(e) => e.target.style.textDecoration = "underline"}
-                          onMouseLeave={(e) => e.target.style.textDecoration = "none"}
-                        >
-                          {store.name}
-                        </span>
-                        <div style={{ fontSize: "14px", color: "#666", marginTop: "4px" }}>
-                          Clave: {store.tag}
-                        </div>
-                      </td>
-                      <td style={{ padding: "15px", textAlign: "center", fontWeight: "bold" }}>
-                        {store.products?.length || 0}
-                      </td>
-                      <td style={{ padding: "15px", textAlign: "center", fontWeight: "bold" }}>
-                        {calculateTotalItems(store)}
-                      </td>
-                      <td style={{ padding: "15px", textAlign: "center" }}>
-                        <button
-                          onClick={() => toggleExpand(store._id)}
-                          style={{
-                            background: expanded[store._id] ? "#6c757d" : "#007bff",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "6px",
-                            padding: "8px 16px",
-                            cursor: "pointer",
-                            fontSize: "14px",
-                            fontWeight: "bold"
-                          }}
-                        >
-                          {expanded[store._id] ? "Ocultar" : "Expandir"}
-                        </button>
-                      </td>
-                    </tr>
-
-                    {expanded[store._id] && (
-                      <tr>
-                        <td colSpan="4" style={{ padding: "0" }}>
-                          <div style={{ 
-                            background: "#f8f9fa", 
-                            padding: "20px",
-                            borderBottom: "1px solid #ddd"
-                          }}>
-                            <h4 style={{ 
-                              margin: "0 0 15px 0", 
-                              color: "#333",
-                              fontSize: "16px"
-                            }}>
-                              Productos en {store.name}:
-                            </h4>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                              {store.products.map((p, index) => (
-                                <div
-                                  key={index}
-                                  style={{
-                                    cursor: "pointer",
-                                    background: "white",
-                                    border: "1px solid #ddd",
-                                    borderRadius: "6px",
-                                    padding: "12px",
-                                    minWidth: "150px",
-                                    transition: "all 0.2s ease",
-                                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
-                                  }}
-                                  onClick={() => setSelectedProduct(p)}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.background = "#007bff";
-                                    e.target.style.color = "white";
-                                    e.target.style.transform = "translateY(-2px)";
-                                    e.target.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.background = "white";
-                                    e.target.style.color = "inherit";
-                                    e.target.style.transform = "translateY(0)";
-                                    e.target.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
-                                  }}
-                                >
-                                  <div style={{ 
-                                    fontWeight: "bold",
-                                    fontSize: "14px",
-                                    marginBottom: "4px"
-                                  }}>
-                                    {p.name}
-                                  </div>
-                                  <div style={{ 
-                                    fontSize: "12px", 
-                                    color: "#666",
-                                    opacity: 0.7
-                                  }}>
-                                    {p.clave}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                      Activo
+                    </th>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "left", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
+                    }}>
+                      Producto
+                    </th>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "center", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
+                    }}>
+                      Precio de Venta
+                    </th>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "center", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
+                    }}>
+                      % Participante
+                    </th>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "center", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
+                    }}>
+                      Total Participante
+                    </th>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "center", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
+                    }}>
+                      # de Piezas
+                    </th>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "center", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
+                    }}>
+                      Total Estetica
+                    </th>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "center", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
+                    }}>
+                      Fecha Recepción
+                    </th>
+                    <th style={{ 
+                      padding: "12px", 
+                      textAlign: "center", 
+                      borderBottom: "2px solid #ddd",
+                      fontWeight: "bold",
+                      color: "#333"
+                    }}>
+                      Marca
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.map((product, index) => {
+                    const participacion = calculateParticipacion(product);
+                    const totalParticipante = calculateTotalParticipante(product, participacion);
+                    const totalEstetica = calculateTotalEstetica(product, totalParticipante);
+                    const isActive = product.quantity > 0;
+                    
+                    return (
+                      <tr key={`${product.storeId}-${product.clave}-${index}`} style={{ 
+                        backgroundColor: index % 2 === 0 ? "#fafafa" : "white"
+                      }}>
+                        <td style={{ padding: "12px", textAlign: "center", borderBottom: "1px solid #eee" }}>
+                          <span
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "12px",
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              backgroundColor: isActive ? "#d4edda" : "#f8d7da",
+                              color: isActive ? "#155724" : "#721c24",
+                              border: `1px solid ${isActive ? "#c3e6cb" : "#f5c6cb"}`
+                            }}
+                          >
+                            {isActive ? "Sí" : "No"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>
+                          <span
+                            style={{
+                              cursor: "pointer",
+                              color: "#007bff",
+                              fontWeight: "bold",
+                              textDecoration: "underline"
+                            }}
+                            onClick={() => setSelectedProduct(product)}
+                          >
+                            {product.name}
+                          </span>
+                          <div style={{ fontSize: "12px", color: "#666" }}>
+                            {product.clave}
                           </div>
                         </td>
+                        <td style={{ 
+                          padding: "12px", 
+                          textAlign: "center", 
+                          borderBottom: "1px solid #eee", 
+                          fontWeight: "bold", 
+                          color: "#28a745" 
+                        }}>
+                          ${parseFloat(product.price || 0).toFixed(2)}
+                        </td>
+                        <td style={{ 
+                          padding: "12px", 
+                          textAlign: "center", 
+                          borderBottom: "1px solid #eee", 
+                          fontWeight: "bold" 
+                        }}>
+                          {participacion}%
+                        </td>
+                        <td style={{ 
+                          padding: "12px", 
+                          textAlign: "center", 
+                          borderBottom: "1px solid #eee", 
+                          fontWeight: "bold", 
+                          color: "#007bff" 
+                        }}>
+                          ${totalParticipante.toFixed(2)}
+                        </td>
+                        <td style={{ 
+                          padding: "12px", 
+                          textAlign: "center", 
+                          borderBottom: "1px solid #eee", 
+                          fontWeight: "bold" 
+                        }}>
+                          {product.quantity}
+                        </td>
+                        <td style={{ 
+                          padding: "12px", 
+                          textAlign: "center", 
+                          borderBottom: "1px solid #eee", 
+                          fontWeight: "bold", 
+                          color: "#6f42c1" 
+                        }}>
+                          ${totalEstetica.toFixed(2)}
+                        </td>
+                        <td style={{ 
+                          padding: "12px", 
+                          textAlign: "center", 
+                          borderBottom: "1px solid #eee" 
+                        }}>
+                          {formatDate(product.fechaRecepcion)}
+                        </td>
+                        <td style={{ 
+                          padding: "12px", 
+                          textAlign: "center", 
+                          borderBottom: "1px solid #eee" 
+                        }}>
+                          <span
+                            style={{
+                              cursor: "pointer",
+                              color: "#007bff",
+                              fontWeight: "bold",
+                              textDecoration: "underline"
+                            }}
+                            onClick={() => handleStoreClick(product.storeTag)}
+                            onMouseEnter={(e) => e.target.style.textDecoration = "underline"}
+                            onMouseLeave={(e) => e.target.style.textDecoration = "underline"}
+                          >
+                            {product.storeName}
+                          </span>
+                        </td>
                       </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-            {filteredStores.length === 0 && (
+            {filteredProducts.length === 0 && (
               <div style={{ 
                 padding: "40px", 
                 textAlign: "center", 
                 color: "#666",
                 background: "white"
               }}>
-                {searchTerm ? "No se encontraron tiendas que coincidan con la búsqueda." : "No hay tiendas registradas."}
+                {searchTerm ? "No se encontraron productos que coincidan con la búsqueda." : "No hay productos registrados en el inventario."}
               </div>
             )}
           </div>
+
+          {/* Summary Statistics */}
+          {filteredProducts.length > 0 && (
+            <div style={{
+              marginTop: "20px",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: "15px"
+            }}>
+              <div style={{
+                background: "white",
+                border: "1px solid #ddd",
+                borderRadius: "8px",
+                padding: "20px",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                textAlign: "center"
+              }}>
+                <h3 style={{ margin: "0 0 10px 0", color: "#333", fontSize: "16px" }}>
+                  Total Productos
+                </h3>
+                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#007bff" }}>
+                  {filteredProducts.length}
+                </div>
+              </div>
+
+              <div style={{
+                background: "white",
+                border: "1px solid #ddd",
+                borderRadius: "8px",
+                padding: "20px",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                textAlign: "center"
+              }}>
+                <h3 style={{ margin: "0 0 10px 0", color: "#333", fontSize: "16px" }}>
+                  Productos Activos
+                </h3>
+                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#28a745" }}>
+                  {filteredProducts.filter(p => p.quantity > 0).length}
+                </div>
+              </div>
+
+              <div style={{
+                background: "white",
+                border: "1px solid #ddd",
+                borderRadius: "8px",
+                padding: "20px",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                textAlign: "center"
+              }}>
+                <h3 style={{ margin: "0 0 10px 0", color: "#333", fontSize: "16px" }}>
+                  Total Tiendas
+                </h3>
+                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#6f42c1" }}>
+                  {new Set(filteredProducts.map(p => p.storeId)).size}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
