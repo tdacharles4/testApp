@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
 // Create new sale
 router.post("/crear", requireAuth, async (req, res) => {
   try {
-    const { store, item, amount, originalPrice, discountAmount, discountPercentage, discountType, date } = req.body;
+    const { store, item, amount, originalPrice, discountAmount, discountPercentage, discountType, date, amountEfectivo, amountTarjeta, amountTransferencia } = req.body;
 
     const venta = new Venta({
       store,
@@ -28,6 +28,9 @@ router.post("/crear", requireAuth, async (req, res) => {
       discountAmount: discountAmount || 0,
       discountPercentage: discountPercentage || 0,
       discountType: discountType || "none",
+      amountEfectivo: amountEfectivo || 0,
+      amountTarjeta: amountTarjeta || 0,
+      amountTransferencia: amountTransferencia || 0,
       date: date || new Date().toLocaleDateString("es-MX")
     });
 
@@ -39,6 +42,23 @@ router.post("/crear", requireAuth, async (req, res) => {
     res.status(201).json(venta);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// Delete sale
+router.delete("/:id", requireAuth, async (req, res) => {
+  try {
+    const venta = await Venta.findById(req.params.id);
+    
+    if (!venta) {
+      return res.status(404).json({ message: "Venta no encontrada" });
+    }
+
+    await Venta.findByIdAndDelete(req.params.id);
+    res.json({ message: "Venta eliminada exitosamente" });
+  } catch (error) {
+    console.error("Error deleting sale:", error);
+    res.status(500).json({ message: "Error al eliminar la venta" });
   }
 });
 
