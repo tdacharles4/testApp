@@ -8,7 +8,7 @@ export default function CrearTienda({ user }) {
   
   // Contract type fields
   const [contractType, setContractType] = useState("");
-  const [contractPercentage, setContractPercentage] = useState("");
+  const [contractPercentage, setContractPercentage] = useState("25.00"); // Default value set
   const [contractPiso, setContractPiso] = useState("");
   
   // Contact and bank fields
@@ -238,23 +238,25 @@ export default function CrearTienda({ user }) {
 
       alert("Tienda creada exitosamente");
       
-      // Reset form
+      // Reset all form states instead of reloading
       setStoreName("");
       setStoreTag("");
       setStoreDescription("");
       setContractType("");
-      setContractPercentage("");
+      setContractPercentage("25.00"); // Reset to default value
       setContractPiso("");
       setContacto("");
       setBanco("");
       setNumeroCuenta("");
       setClabe("");
       setTarjeta("");
+      
+      // Reset products to initial state
       const today = new Date().toISOString().split('T')[0];
       setProducts([{ 
         image: null, 
         name: "", 
-        nombreProducto: "", // New field
+        nombreProducto: "", 
         description: "", 
         price: "", 
         quantity: 0,
@@ -393,7 +395,12 @@ export default function CrearTienda({ user }) {
                     name="contractType"
                     value="Porcentaje"
                     checked={contractType === "Porcentaje"}
-                    onChange={(e) => setContractType(e.target.value)}
+                    onChange={(e) => {
+                      setContractType(e.target.value);
+                      if (e.target.value === "Porcentaje") {
+                        setContractPercentage("25.00"); // Set default value when selected
+                      }
+                    }}
                     style={{ transform: "scale(1.2)" }}
                   />
                   <span style={{ fontWeight: "bold", fontSize: "15px" }}>Porcentaje</span>

@@ -257,6 +257,15 @@ export default function Entrada() {
   };
 
   const confirmSubmit = async () => {
+    // Find the current item and store info
+    const foundItem = items.find(i => i.clave === selectedItem);
+    const foundStore = stores.find(s => s.tag === selectedStore);
+    
+    if (!foundItem || !foundStore) {
+      alert("Error: No se pudo encontrar la información del producto o tienda");
+      return;
+    }
+
     const sale = {
       store: selectedStore,
       item: selectedItem,
@@ -270,6 +279,9 @@ export default function Entrada() {
       amountEfectivo: paymentMethods.efectivo.selected ? Number(paymentMethods.efectivo.amount) : 0,
       amountTarjeta: paymentMethods.tarjeta.selected ? Number(paymentMethods.tarjeta.amount) : 0,
       amountTransferencia: paymentMethods.transferencia.selected ? Number(paymentMethods.transferencia.amount) : 0,
+      // Include store contract information
+      storeContractType: foundStore.contractType,
+      storeContractValue: foundStore.contractValue || 0
     };
 
     try {
