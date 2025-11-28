@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export default function RegistroVenta() {
+export default function Entrada() {
   const [stores, setStores] = useState([]);
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -85,30 +85,6 @@ export default function RegistroVenta() {
     }
   }, [discountEnabled, discountType, discountValue, selectedItem, itemPrice]);
 
-  // Update payment amounts when total amount changes
-  useEffect(() => {
-    if (amount && parseFloat(amount) > 0) {
-      const totalAmount = parseFloat(amount);
-      const selectedPayments = Object.values(paymentMethods).filter(p => p.selected).length;
-      
-      if (selectedPayments === 1) {
-        // If only one payment method selected, set its amount to total
-        const updatedPayments = { ...paymentMethods };
-        Object.keys(updatedPayments).forEach(key => {
-          if (updatedPayments[key].selected) {
-            updatedPayments[key].amount = totalAmount.toFixed(2);
-          } else {
-            updatedPayments[key].amount = "";
-          }
-        });
-        setPaymentMethods(updatedPayments);
-      } else if (selectedPayments > 1) {
-        // If multiple methods selected, distribute amounts proportionally
-        distributePayments(totalAmount);
-      }
-    }
-  }, [amount]);
-
   const distributePayments = (totalAmount) => {
     const selectedMethods = Object.keys(paymentMethods).filter(key => paymentMethods[key].selected);
     const equalAmount = (totalAmount / selectedMethods.length).toFixed(2);
@@ -120,6 +96,34 @@ export default function RegistroVenta() {
     
     setPaymentMethods(updatedPayments);
   };
+
+  // Update payment amounts when total amount changes
+  useEffect(() => {
+    if (amount && parseFloat(amount) > 0 && multiplePayments) {
+      const totalAmount = parseFloat(amount);
+      const selectedPayments = Object.values(paymentMethods).filter(p => p.selected);
+      
+      if (selectedPayments.length > 0) {
+        // Only redistribute if we have selected payments
+        const equalAmount = (totalAmount / selectedPayments.length).toFixed(2);
+        
+        // Check if amounts need updating to avoid infinite loop
+        const needsUpdate = selectedPayments.some(p => 
+          Math.abs(parseFloat(p.amount || 0) - parseFloat(equalAmount)) > 0.01
+        );
+        
+        if (needsUpdate) {
+          const updatedPayments = { ...paymentMethods };
+          Object.keys(updatedPayments).forEach(key => {
+            if (updatedPayments[key].selected) {
+              updatedPayments[key].amount = equalAmount;
+            }
+          });
+          setPaymentMethods(updatedPayments);
+        }
+      }
+    }
+  }, [amount, multiplePayments]);
 
   const calculateDiscountPercentage = () => {
     if (!itemPrice || itemPrice === 0) return 0;
@@ -136,28 +140,68 @@ export default function RegistroVenta() {
 
   const handlePaymentMethodChange = (method) => {
     if (!multiplePayments) {
-      // Single payment mode - toggle the selected one
+      // Single payment mode - select the clicked method and deselect others
       const updatedPayments = {
-        efectivo: { selected: false, amount: "" },
-        tarjeta: { selected: false, amount: "" },
-        transferencia: { selected: false, amount: "" }
-      };
-      updatedPayments[method] = { 
-        selected: true, 
-        amount: amount && parseFloat(amount) > 0 ? parseFloat(amount).toFixed(2) : "" 
+        efectivo: { 
+          selected: method === 'efectivo', 
+          amount: method === 'efectivo' && amount ? parseFloat(amount).toFixed(2) : "" 
+        },
+        tarjeta: { 
+          selected: method === 'tarjeta', 
+          amount: method === 'tarjeta' && amount ? parseFloat(amount).toFixed(2) : "" 
+        },
+        transferencia: { 
+          selected: method === 'transferencia', 
+          amount: method === 'transferencia' && amount ? parseFloat(amount).toFixed(2) : "" 
+        }
       };
       setPaymentMethods(updatedPayments);
     } else {
-      // Multiple payments mode - toggle the method
+      // Multiple payments mode - toggle the specific method
       const updatedPayments = { ...paymentMethods };
-      updatedPayments[method].selected = !updatedPayments[method].selected;
+      const isCurrentlySelected = updatedPayments[method].selected;
+      
+      // Toggle the clicked method
+      updatedPayments[method].selected = !isCurrentlySelected;
       
       if (!updatedPayments[method].selected) {
+        // Method was deselected - clear its amount
         updatedPayments[method].amount = "";
-      } else if (amount && parseFloat(amount) > 0) {
+        
+        // If no methods are selected after this, automatically switch to single mode with this method
         const selectedCount = Object.values(updatedPayments).filter(p => p.selected).length;
-        if (selectedCount > 0) {
-          distributePayments(parseFloat(amount));
+        if (selectedCount === 0) {
+          setMultiplePayments(false);
+          // Re-select this method in single mode
+          const singlePaymentMethods = {
+            efectivo: { selected: method === 'efectivo', amount: method === 'efectivo' && amount ? parseFloat(amount).toFixed(2) : "" },
+            tarjeta: { selected: method === 'tarjeta', amount: method === 'tarjeta' && amount ? parseFloat(amount).toFixed(2) : "" },
+            transferencia: { selected: method === 'transferencia', amount: method === 'transferencia' && amount ? parseFloat(amount).toFixed(2) : "" }
+          };
+          setPaymentMethods(singlePaymentMethods);
+          return;
+        }
+        
+        // Recalculate amounts for remaining selected methods
+        const remainingSelected = Object.values(updatedPayments).filter(p => p.selected);
+        if (remainingSelected.length > 0 && amount && parseFloat(amount) > 0) {
+          const equalAmount = (parseFloat(amount) / remainingSelected.length).toFixed(2);
+          Object.keys(updatedPayments).forEach(key => {
+            if (updatedPayments[key].selected) {
+              updatedPayments[key].amount = equalAmount;
+            }
+          });
+        }
+      } else {
+        // Method was selected - add it to the distribution
+        if (amount && parseFloat(amount) > 0) {
+          const selectedCount = Object.values(updatedPayments).filter(p => p.selected).length;
+          const equalAmount = (parseFloat(amount) / selectedCount).toFixed(2);
+          Object.keys(updatedPayments).forEach(key => {
+            if (updatedPayments[key].selected) {
+              updatedPayments[key].amount = equalAmount;
+            }
+          });
         }
       }
       
@@ -172,23 +216,43 @@ export default function RegistroVenta() {
   };
 
   const validatePaymentAmounts = () => {
-    if (!amount || parseFloat(amount) === 0) return false;
+    if (!amount || parseFloat(amount) === 0) {
+      alert("El monto total debe ser mayor a cero.");
+      return false;
+    }
     
     const totalAmount = parseFloat(amount);
     const selectedMethods = Object.values(paymentMethods).filter(p => p.selected);
     
-    if (selectedMethods.length === 0) return false;
+    if (selectedMethods.length === 0) {
+      alert("Debe seleccionar al menos un método de pago.");
+      return false;
+    }
     
     const sumAmounts = selectedMethods.reduce((sum, method) => {
       return sum + (parseFloat(method.amount) || 0);
     }, 0);
     
-    return Math.abs(sumAmounts - totalAmount) < 0.01; // Allow small floating point differences
+    const isAmountValid = Math.abs(sumAmounts - totalAmount) < 0.01;
+    
+    if (!isAmountValid) {
+      alert(`La suma de los montos de pago ($${sumAmounts.toFixed(2)}) debe ser igual al valor final de venta ($${totalAmount.toFixed(2)}).`);
+      return false;
+    }
+    
+    return true;
   };
 
   const handleSubmit = () => {
-    if (!selectedItem || !amount) return alert("Completa todos los campos.");
-    if (!validatePaymentAmounts()) return alert("La suma de los montos de pago debe ser igual al valor final de venta.");
+    if (!selectedItem || !amount) {
+      alert("Completa todos los campos.");
+      return;
+    }
+    
+    if (!validatePaymentAmounts()) {
+      return;
+    }
+    
     setModalOpen(true);
   };
 
@@ -203,7 +267,6 @@ export default function RegistroVenta() {
       discountType: discountEnabled ? discountType : "none",
       date: new Date().toLocaleDateString("es-MX"),
       user: user._id,
-      // Add payment method amounts
       amountEfectivo: paymentMethods.efectivo.selected ? Number(paymentMethods.efectivo.amount) : 0,
       amountTarjeta: paymentMethods.tarjeta.selected ? Number(paymentMethods.tarjeta.amount) : 0,
       amountTransferencia: paymentMethods.transferencia.selected ? Number(paymentMethods.transferencia.amount) : 0,
@@ -539,7 +602,24 @@ export default function RegistroVenta() {
                 type="checkbox"
                 id="multiplePayments"
                 checked={multiplePayments}
-                onChange={(e) => setMultiplePayments(e.target.checked)}
+                onChange={(e) => {
+                  const newMultiplePayments = e.target.checked;
+                  setMultiplePayments(newMultiplePayments);
+                  
+                  if (!newMultiplePayments) {
+                    // Switching from multiple to single payment mode
+                    // Find the first selected payment method, or default to efectivo if none selected
+                    const selectedMethod = Object.keys(paymentMethods).find(key => paymentMethods[key].selected) || 'efectivo';
+                    
+                    const singlePaymentMethods = {
+                      efectivo: { selected: selectedMethod === 'efectivo', amount: selectedMethod === 'efectivo' && amount ? parseFloat(amount).toFixed(2) : "" },
+                      tarjeta: { selected: selectedMethod === 'tarjeta', amount: selectedMethod === 'tarjeta' && amount ? parseFloat(amount).toFixed(2) : "" },
+                      transferencia: { selected: selectedMethod === 'transferencia', amount: selectedMethod === 'transferencia' && amount ? parseFloat(amount).toFixed(2) : "" }
+                    };
+                    
+                    setPaymentMethods(singlePaymentMethods);
+                  }
+                }}
                 style={{ marginRight: "10px" }}
               />
               <label htmlFor="multiplePayments" style={{ 
@@ -577,7 +657,7 @@ export default function RegistroVenta() {
                   }}>
                     <input
                       type={multiplePayments ? "checkbox" : "radio"}
-                      name={multiplePayments ? "multiple-payments" : "single-payment"}
+                      name="payment-method" // Same name for all radio buttons
                       checked={paymentMethods[method].selected}
                       onChange={() => handlePaymentMethodChange(method)}
                       style={{ marginRight: "8px" }}
@@ -616,7 +696,7 @@ export default function RegistroVenta() {
                           fontSize: "14px"
                         }}
                         placeholder="0.00"
-                        disabled={!multiplePayments && Object.values(paymentMethods).filter(p => p.selected).length === 1}
+                        disabled={!multiplePayments}
                       />
                     </div>
                   )}
@@ -628,9 +708,13 @@ export default function RegistroVenta() {
                   marginTop: "10px", 
                   fontSize: "12px", 
                   color: "#666",
-                  fontStyle: "italic"
+                  fontStyle: "italic",
+                  padding: "8px",
+                  background: "#fff3cd",
+                  borderRadius: "4px",
+                  border: "1px solid #ffeaa7"
                 }}>
-                  La suma de los montos debe ser igual al valor final de venta
+                  <strong>Nota:</strong> Al deseleccionar todos los métodos, se volverá automáticamente a un solo método de pago.
                 </div>
               )}
             </div>

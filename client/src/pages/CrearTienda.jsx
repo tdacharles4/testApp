@@ -416,7 +416,7 @@ export default function CrearTienda({ user }) {
                           fontSize: "15px",
                           boxSizing: "border-box"
                         }}
-                        placeholder="0.00"
+                        placeholder="25.00"
                       />
                       <span style={{
                         position: "absolute",

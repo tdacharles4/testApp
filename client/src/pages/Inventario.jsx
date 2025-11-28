@@ -2,11 +2,23 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const Inventario = ({ user }) => {
-  const [stores, setStores] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [stores, setStores] = useState([]);
+  const [filters, setFilters] = useState({
+    activo: null,
+    producto: [],
+    precioVenta: null,
+    participacion: null,
+    totalParticipante: null,
+    piezas: null,
+    totalEstetica: null,
+    fechaRecepcion: null,
+    marca: []
+  });
+  const [showFilterDropdown, setShowFilterDropdown] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,13 +46,56 @@ const Inventario = ({ user }) => {
   }, []);
 
   useEffect(() => {
-    const filtered = allProducts.filter(product =>
+    let filtered = allProducts.filter(product =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.clave.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.storeName.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Apply filters
+    if (filters.activo !== null) {
+      filtered = filtered.filter(product => 
+        filters.activo ? product.quantity > 0 : product.quantity === 0
+      );
+    }
+
+    if (filters.producto.length > 0) {
+      filtered = filtered.filter(product => 
+        filters.producto.includes(product.name)
+      );
+    }
+
+    if (filters.marca.length > 0) {
+      filtered = filtered.filter(product => 
+        filters.marca.includes(product.storeName)
+      );
+    }
+
+    // Apply sorting
+    filtered = [...filtered].sort((a, b) => {
+      if (filters.precioVenta === 'asc') return (a.price || 0) - (b.price || 0);
+      if (filters.precioVenta === 'desc') return (b.price || 0) - (a.price || 0);
+      
+      if (filters.participacion === 'asc') return calculateParticipacion(a) - calculateParticipacion(b);
+      if (filters.participacion === 'desc') return calculateParticipacion(b) - calculateParticipacion(a);
+      
+      if (filters.totalParticipante === 'asc') return calculateTotalParticipante(a, calculateParticipacion(a)) - calculateTotalParticipante(b, calculateParticipacion(b));
+      if (filters.totalParticipante === 'desc') return calculateTotalParticipante(b, calculateParticipacion(b)) - calculateTotalParticipante(a, calculateParticipacion(a));
+      
+      if (filters.piezas === 'asc') return (a.quantity || 0) - (b.quantity || 0);
+      if (filters.piezas === 'desc') return (b.quantity || 0) - (a.quantity || 0);
+      
+      if (filters.totalEstetica === 'asc') return calculateTotalEstetica(a, calculateTotalParticipante(a, calculateParticipacion(a))) - calculateTotalEstetica(b, calculateTotalParticipante(b, calculateParticipacion(b)));
+      if (filters.totalEstetica === 'desc') return calculateTotalEstetica(b, calculateTotalParticipante(b, calculateParticipacion(b))) - calculateTotalEstetica(a, calculateTotalParticipante(a, calculateParticipacion(a)));
+      
+      if (filters.fechaRecepcion === 'asc') return new Date(a.fechaRecepcion || 0) - new Date(b.fechaRecepcion || 0);
+      if (filters.fechaRecepcion === 'desc') return new Date(b.fechaRecepcion || 0) - new Date(a.fechaRecepcion || 0);
+      
+      return 0;
+    });
+
     setFilteredProducts(filtered);
-  }, [searchTerm, allProducts]);
+  }, [searchTerm, allProducts, filters]);
 
   const closePreview = () => {
     setSelectedProduct(null);
@@ -73,34 +128,360 @@ const Inventario = ({ user }) => {
     return date.toLocaleDateString('es-MX');
   };
 
-  return (
-    <div style={{ padding: "20px", maxWidth: "1400px", margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: "30px" }}>
-        <h1 style={{ 
-          margin: "0 0 10px 0", 
-          color: "#333",
-          fontSize: "28px",
-          fontWeight: "bold"
-        }}>
-          Inventario General
-        </h1>
-        <p style={{ color: "#666", margin: 0 }}>
-          Vista global de todos los productos en todas las tiendas
-        </p>
-      </div>
+  // Filter handlers
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+    setShowFilterDropdown(null);
+  };
 
-      {/* Search Bar */}
+  const handleMultiSelectFilter = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: prev[filterType].includes(value) 
+        ? prev[filterType].filter(item => item !== value)
+        : [...prev[filterType], value]
+    }));
+  };
+
+  const handleSelectAll = (filterType, allValues) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: prev[filterType].length === allValues.length ? [] : allValues
+    }));
+  };
+
+  const clearFilter = (filterType) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: filterType === 'producto' || filterType === 'marca' ? [] : null
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      activo: null,
+      producto: [],
+      precioVenta: null,
+      participacion: null,
+      totalParticipante: null,
+      piezas: null,
+      totalEstetica: null,
+      fechaRecepcion: null,
+      marca: []
+    });
+  };
+
+  // Get unique values for multi-select filters
+  const uniqueProductNames = [...new Set(allProducts.map(p => p.name))].sort();
+
+  // Calculate total piezas
+  const totalPiezas = filteredProducts.reduce((sum, product) => sum + (product.quantity || 0), 0);
+
+  const FilterDropdown = ({ type, isOpen, onClose }) => {
+    if (!isOpen) return null;
+
+    const getFilterContent = () => {
+      switch (type) {
+        case 'activo':
+          return (
+            <div style={{ padding: "10px" }}>
+              <div style={{ marginBottom: "8px" }}>
+                <button
+                  onClick={() => handleFilterChange('activo', true)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    background: filters.activo === true ? "#007bff" : "#f8f9fa",
+                    color: filters.activo === true ? "white" : "#333",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    cursor: "pointer"
+                  }}
+                >
+                  Sí
+                </button>
+              </div>
+              <div>
+                <button
+                  onClick={() => handleFilterChange('activo', false)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    background: filters.activo === false ? "#007bff" : "#f8f9fa",
+                    color: filters.activo === false ? "white" : "#333",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    cursor: "pointer"
+                  }}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          );
+
+        case 'producto':
+          return (
+            <div style={{ padding: "10px", maxHeight: "200px", overflowY: "auto" }}>
+              <div style={{ marginBottom: "8px" }}>
+                <button
+                  onClick={() => handleSelectAll('producto', uniqueProductNames)}
+                  style={{
+                    width: "100%",
+                    padding: "6px",
+                    background: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "12px"
+                  }}
+                >
+                  {filters.producto.length === uniqueProductNames.length ? "Deseleccionar Todos" : "Seleccionar Todos"}
+                </button>
+              </div>
+              {uniqueProductNames.map(name => (
+                <div key={name} style={{ marginBottom: "4px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={filters.producto.includes(name)}
+                      onChange={() => handleMultiSelectFilter('producto', name)}
+                    />
+                    <span style={{ fontSize: "14px" }}>{name}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          );
+
+        case 'marca':
+          const uniqueStoreTags = [...new Set(allProducts.map(p => p.storeTag))].sort();
+          
+          return (
+            <div style={{ 
+              position: "absolute",
+              top: "100%",
+              left: "100%",
+              background: "white",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              zIndex: 1000,
+              width: "125px",
+              overflow: "hidden"
+            }}>
+              <div style={{ 
+                padding: "10px", 
+                maxHeight: "200px", 
+                overflowY: "auto",
+                overflowX: "hidden"
+              }}>
+                <div style={{ marginBottom: "8px" }}>
+                  <button
+                    onClick={() => handleSelectAll('marca', uniqueStoreTags)}
+                    style={{
+                      width: "100%",
+                      padding: "6px",
+                      background: "#6c757d",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    {filters.marca.length === uniqueStoreTags.length ? "Deseleccionar Todos" : "Seleccionar Todos"}
+                  </button>
+                </div>
+                {uniqueStoreTags.map(tag => (
+                  <div key={tag} style={{ marginBottom: "4px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={filters.marca.includes(tag)}
+                        onChange={() => handleMultiSelectFilter('marca', tag)}
+                      />
+                      <span style={{ 
+                        fontSize: "14px", 
+                        wordBreak: "break-word",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
+                      }}>
+                        {tag}
+                      </span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+
+        default:
+          return (
+            <div style={{ padding: "10px" }}>
+              <div style={{ marginBottom: "8px" }}>
+                <button
+                  onClick={() => handleFilterChange(type, 'asc')}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    background: filters[type] === 'asc' ? "#007bff" : "#f8f9fa",
+                    color: filters[type] === 'asc' ? "white" : "#333",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    cursor: "pointer"
+                  }}
+                >
+                  Ascendente
+                </button>
+              </div>
+              <div>
+                <button
+                  onClick={() => handleFilterChange(type, 'desc')}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    background: filters[type] === 'desc' ? "#007bff" : "#f8f9fa",
+                    color: filters[type] === 'desc' ? "white" : "#333",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    cursor: "pointer"
+                  }}
+                >
+                  Descendente
+                </button>
+              </div>
+            </div>
+          );
+      }
+    };
+
+    return (
+      <div style={{
+        position: "absolute",
+        top: "100%",
+        left: 0,
+        background: "white",
+        border: "1px solid #ddd",
+        borderRadius: "4px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        zIndex: 1000,
+        minWidth: "150px"
+      }}>
+        {getFilterContent()}
+      </div>
+    );
+  };
+
+  const FilterHeader = ({ title, filterType, hasFilter, style }) => {
+    return (
+      <th style={{ 
+        padding: "10px 6px", 
+        textAlign: "center", 
+        borderBottom: "2px solid #ddd",
+        fontWeight: "bold",
+        color: "#333",
+        position: "relative",
+        fontSize: "12px",
+        whiteSpace: "nowrap",
+        ...style
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+          <span>{title}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowFilterDropdown(showFilterDropdown === filterType ? null : filterType);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: hasFilter ? "#007bff" : "#666",
+              fontSize: "10px",
+              padding: "2px"
+            }}
+          >
+            ▼
+          </button>
+          {hasFilter && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                clearFilter(filterType);
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "#dc3545",
+                fontSize: "8px",
+                padding: "1px"
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {showFilterDropdown === filterType && (
+          <FilterDropdown 
+            type={filterType} 
+            isOpen={true} 
+            onClose={() => setShowFilterDropdown(null)} 
+          />
+        )}
+      </th>
+    );
+  };
+
+  return (
+    <div style={{ 
+      padding: "20px 5%",
+      height: "calc(100vh - 60px)",
+      display: "flex",
+      flexDirection: "column",
+      gap: "15px",
+      background: "#f8f9fa",
+      overflow: "hidden"
+    }}>
+      {/* Header - Fixed height */}
       <div style={{
         background: "white",
         border: "1px solid #ddd",
         borderRadius: "8px",
-        padding: "20px",
+        padding: "15px",
         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-        marginBottom: "20px"
+        flexShrink: 0
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontWeight: "bold", color: "#333", minWidth: "120px" }}>
+        <h1 style={{ 
+          margin: "0 0 8px 0", 
+          color: "#333",
+          fontSize: "24px",
+          fontWeight: "bold"
+        }}>
+          Inventario General
+        </h1>
+        <p style={{ color: "#666", margin: 0, fontSize: "14px" }}>
+          Vista global de todos los productos en todas las tiendas
+        </p>
+      </div>
+
+      {/* Search and Filter Controls - Fixed height */}
+      <div style={{
+        background: "white",
+        border: "1px solid #ddd",
+        borderRadius: "8px",
+        padding: "15px",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        flexShrink: 0
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+          <span style={{ fontWeight: "bold", color: "#333", minWidth: "120px", fontSize: "14px" }}>
             Buscar Producto:
           </span>
           <input
@@ -110,10 +491,10 @@ const Inventario = ({ user }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
               flex: 1,
-              padding: "10px",
+              padding: "8px",
               border: "1px solid #ccc",
               borderRadius: "6px",
-              fontSize: "16px"
+              fontSize: "14px"
             }}
           />
           {searchTerm && (
@@ -124,57 +505,123 @@ const Inventario = ({ user }) => {
                 color: "white",
                 border: "none",
                 borderRadius: "4px",
-                padding: "8px 12px",
-                cursor: "pointer"
+                padding: "6px 10px",
+                cursor: "pointer",
+                fontSize: "12px"
               }}
             >
               Limpiar
             </button>
           )}
         </div>
-      </div>
 
-      <div style={{ display: "flex", gap: "20px" }}>
-        {/* LEFT PANEL FOR PRODUCT PREVIEW */}
-        {selectedProduct && (
-          <div style={{
-            width: "350px",
-            background: "white",
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            padding: "20px",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            height: "fit-content",
-            position: "sticky",
-            top: "20px"
-          }}>
-            {/* CLOSE BUTTON */}
+        {/* Active Filters Display */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+          <span style={{ fontWeight: "bold", color: "#333", fontSize: "12px" }}>Filtros activos:</span>
+          {Object.entries(filters).map(([key, value]) => {
+            if ((Array.isArray(value) && value.length > 0) || (!Array.isArray(value) && value !== null)) {
+              return (
+                <span
+                  key={key}
+                  style={{
+                    background: "#007bff",
+                    color: "white",
+                    padding: "3px 6px",
+                    borderRadius: "10px",
+                    fontSize: "11px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "3px"
+                  }}
+                >
+                  {key}: {Array.isArray(value) ? value.join(', ') : value}
+                  <button
+                    onClick={() => clearFilter(key)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "white",
+                      cursor: "pointer",
+                      fontSize: "9px"
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            }
+            return null;
+          }).filter(Boolean)}
+          
+          {(Object.values(filters).some(val => 
+            (Array.isArray(val) && val.length > 0) || (!Array.isArray(val) && val !== null)
+          )) && (
             <button
-              onClick={closePreview}
+              onClick={clearAllFilters}
               style={{
-                position: "absolute",
-                top: "12px",
-                left: "12px",
                 background: "#dc3545",
                 color: "white",
                 border: "none",
                 borderRadius: "4px",
+                padding: "3px 6px",
                 cursor: "pointer",
-                padding: "4px 8px",
-                fontSize: "12px"
+                fontSize: "11px"
               }}
             >
-              X
+              Limpiar Todos
             </button>
+          )}
+        </div>
+      </div>
 
-            <h3 style={{ 
-              margin: "30px 0 15px 0", 
-              color: "#333",
-              fontSize: "20px",
-              textAlign: "center"
-            }}>
-              {selectedProduct.name}
-            </h3>
+      {/* Main Content Area - Takes remaining space */}
+      <div style={{ 
+        display: "flex", 
+        gap: "15px", 
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden"
+      }}>
+        {/* PRODUCT DETAIL PANEL - 25% (15% shorter) */}
+        {selectedProduct && (
+          <div style={{
+            width: "25%",
+            background: "white",
+            border: "1px solid #ddd",
+            borderRadius: "8px",
+            padding: "15px",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            display: "flex",
+            flexDirection: "column",
+            minWidth: "250px",
+            overflow: "hidden",
+            height: "85%", // 15% shorter
+            alignSelf: "flex-start" // Align to top
+          }}>
+            {/* CLOSE BUTTON */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+              <h3 style={{ 
+                margin: 0, 
+                color: "#333",
+                fontSize: "16px"
+              }}>
+                Detalles del Producto
+              </h3>
+              <button
+                onClick={closePreview}
+                style={{
+                  background: "#dc3545",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  fontSize: "11px"
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
 
             {selectedProduct.imageUrl && (
               <img
@@ -182,61 +629,91 @@ const Inventario = ({ user }) => {
                 alt="producto"
                 style={{
                   width: "100%",
-                  borderRadius: "8px",
-                  marginBottom: "15px"
+                  borderRadius: "6px",
+                  marginBottom: "15px",
+                  maxHeight: "150px",
+                  objectFit: "contain"
                 }}
               />
             )}
 
-            {/* PRODUCT DETAILS */}
+            {/* PRODUCT DETAILS - Scrollable if needed */}
             <div style={{
               background: "#f8f9fa",
               border: "1px solid #e9ecef",
               borderRadius: "6px",
-              padding: "15px",
-              marginBottom: "15px"
+              padding: "12px",
+              flex: 1,
+              overflow: "auto"
             }}>
-              <div style={{ 
-                display: "flex", 
-                justifyContent: "space-between",
-                marginBottom: "8px"
-              }}>
-                <strong>Clave:</strong>
-                <span>{selectedProduct.clave}</span>
+              <div style={{ marginBottom: "12px" }}>
+                <strong style={{ color: "#333", fontSize: "13px" }}>Nombre:</strong>
+                <p style={{ margin: "4px 0 0 0", fontSize: "14px", fontWeight: "bold" }}>
+                  {selectedProduct.name}
+                </p>
               </div>
-              <div style={{ 
-                display: "flex", 
-                justifyContent: "space-between",
-                marginBottom: "8px"
-              }}>
-                <strong>Precio:</strong>
-                <span style={{ fontWeight: "bold", color: "#28a745" }}>
+
+              <div style={{ marginBottom: "12px" }}>
+                <strong style={{ color: "#333", fontSize: "13px" }}>Clave:</strong>
+                <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#666" }}>
+                  {selectedProduct.clave}
+                </p>
+              </div>
+
+              <div style={{ marginBottom: "12px" }}>
+                <strong style={{ color: "#333", fontSize: "13px" }}>Precio:</strong>
+                <p style={{ 
+                  margin: "4px 0 0 0", 
+                  fontSize: "16px", 
+                  fontWeight: "bold", 
+                  color: "#28a745" 
+                }}>
                   ${selectedProduct.price?.toFixed(2) || "0.00"}
-                </span>
+                </p>
               </div>
-              <div style={{ 
-                display: "flex", 
-                justifyContent: "space-between",
-                marginBottom: "8px"
-              }}>
-                <strong>Tienda:</strong>
-                <span 
+
+              <div style={{ marginBottom: "12px" }}>
+                <strong style={{ color: "#333", fontSize: "13px" }}>Tienda:</strong>
+                <p 
                   style={{
+                    margin: "4px 0 0 0",
                     cursor: "pointer",
                     color: "#007bff",
-                    textDecoration: "underline"
+                    textDecoration: "underline",
+                    fontWeight: "bold",
+                    fontSize: "13px"
                   }}
                   onClick={() => handleStoreClick(selectedProduct.storeTag)}
                 >
                   {selectedProduct.storeName}
-                </span>
+                </p>
               </div>
+
+              <div style={{ marginBottom: "12px" }}>
+                <strong style={{ color: "#333", fontSize: "13px" }}>Cantidad:</strong>
+                <p style={{ 
+                  margin: "4px 0 0 0", 
+                  fontSize: "14px", 
+                  fontWeight: "bold",
+                  color: selectedProduct.quantity > 0 ? "#28a745" : "#dc3545"
+                }}>
+                  {selectedProduct.quantity} piezas
+                </p>
+              </div>
+
+              <div style={{ marginBottom: "12px" }}>
+                <strong style={{ color: "#333", fontSize: "13px" }}>Fecha Recepción:</strong>
+                <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#666" }}>
+                  {formatDate(selectedProduct.fechaRecepcion)}
+                </p>
+              </div>
+
               {selectedProduct.description && (
-                <div style={{ marginTop: "10px" }}>
-                  <strong>Descripción:</strong>
+                <div>
+                  <strong style={{ color: "#333", fontSize: "13px" }}>Descripción:</strong>
                   <p style={{ 
-                    margin: "5px 0 0 0", 
-                    fontSize: "14px",
+                    margin: "4px 0 0 0", 
+                    fontSize: "12px",
                     color: "#666",
                     lineHeight: "1.4"
                   }}>
@@ -248,104 +725,47 @@ const Inventario = ({ user }) => {
           </div>
         )}
 
-        {/* INVENTORY TABLE */}
-        <div style={{ flexGrow: 1 }}>
+        {/* INVENTORY TABLE PANEL - 75% (15% shorter) */}
+        <div style={{ 
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          overflow: "hidden",
+          height: "85%" // 15% shorter
+        }}>
+          {/* Table Container - Takes all available space */}
           <div style={{
             background: "white",
             border: "1px solid #ddd",
             borderRadius: "8px",
             overflow: "hidden",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column"
           }}>
-            <div style={{ overflowX: "auto" }}>
+            {/* Table with vertical scrolling only */}
+            <div style={{ 
+              overflow: "auto",
+              flex: 1
+            }}>
               <table style={{ 
                 width: "100%", 
                 borderCollapse: "collapse",
-                minWidth: "1200px"
+                tableLayout: "fixed"
               }}>
                 <thead>
-                  <tr style={{ background: "#f8f9fa" }}>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "center", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      Activo
-                    </th>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "left", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      Producto
-                    </th>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "center", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      Precio de Venta
-                    </th>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "center", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      % Participante
-                    </th>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "center", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      Total Participante
-                    </th>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "center", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      # de Piezas
-                    </th>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "center", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      Total Estetica
-                    </th>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "center", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      Fecha Recepción
-                    </th>
-                    <th style={{ 
-                      padding: "12px", 
-                      textAlign: "center", 
-                      borderBottom: "2px solid #ddd",
-                      fontWeight: "bold",
-                      color: "#333"
-                    }}>
-                      Marca
-                    </th>
+                  <tr style={{ background: "#f8f9fa", position: "sticky", top: 0, zIndex: 10 }}>
+                    <FilterHeader title="Activo" filterType="activo" hasFilter={filters.activo !== null} style={{ width: "60px" }} />
+                    <FilterHeader title="Producto" filterType="producto" hasFilter={filters.producto.length > 0} style={{ textAlign: "center" }}/>
+                    <FilterHeader title="Precio" filterType="precioVenta" hasFilter={filters.precioVenta !== null} style={{ width: "100px" }}/>
+                    <FilterHeader title="% Marca" filterType="participacion" hasFilter={filters.participacion !== null} style={{ width: "60px" }}/>
+                    <FilterHeader title="Total Marca" filterType="totalParticipante" hasFilter={filters.totalParticipante !== null} style={{ width: "100px" }}/>
+                    <FilterHeader title="Piezas" filterType="piezas" hasFilter={filters.piezas !== null} style={{ width: "60px" }}/>
+                    <FilterHeader title="Total Estetica" filterType="totalEstetica" hasFilter={filters.totalEstetica !== null} style={{ width: "100px" }}/>
+                    <FilterHeader title="Fecha" filterType="fechaRecepcion" hasFilter={filters.fechaRecepcion !== null} style={{ width: "60px" }}/>
+                    <FilterHeader title="Marca" filterType="marca" hasFilter={filters.marca.length > 0} style={{ textAlign: "center" }}/>
                   </tr>
                 </thead>
                 <tbody>
@@ -359,12 +779,12 @@ const Inventario = ({ user }) => {
                       <tr key={`${product.storeId}-${product.clave}-${index}`} style={{ 
                         backgroundColor: index % 2 === 0 ? "#fafafa" : "white"
                       }}>
-                        <td style={{ padding: "12px", textAlign: "center", borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "8px 4px", textAlign: "center", borderBottom: "1px solid #eee", fontSize: "11px" }}>
                           <span
                             style={{
-                              padding: "4px 8px",
-                              borderRadius: "12px",
-                              fontSize: "12px",
+                              padding: "2px 4px",
+                              borderRadius: "8px",
+                              fontSize: "10px",
                               fontWeight: "bold",
                               backgroundColor: isActive ? "#d4edda" : "#f8d7da",
                               color: isActive ? "#155724" : "#721c24",
@@ -374,7 +794,7 @@ const Inventario = ({ user }) => {
                             {isActive ? "Sí" : "No"}
                           </span>
                         </td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "8px 4px", borderBottom: "1px solid #eee", fontSize: "11px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",textAlign: "center" }}>
                           <span
                             style={{
                               cursor: "pointer",
@@ -386,64 +806,74 @@ const Inventario = ({ user }) => {
                           >
                             {product.name}
                           </span>
-                          <div style={{ fontSize: "12px", color: "#666" }}>
+                          <div style={{ fontSize: "9px", color: "#666" }}>
                             {product.clave}
                           </div>
                         </td>
                         <td style={{ 
-                          padding: "12px", 
+                          padding: "8px 4px", 
                           textAlign: "center", 
                           borderBottom: "1px solid #eee", 
                           fontWeight: "bold", 
-                          color: "#28a745" 
+                          color: "#28a745",
+                          fontSize: "11px"
                         }}>
                           ${parseFloat(product.price || 0).toFixed(2)}
                         </td>
                         <td style={{ 
-                          padding: "12px", 
+                          padding: "8px 4px", 
                           textAlign: "center", 
                           borderBottom: "1px solid #eee", 
-                          fontWeight: "bold" 
+                          fontWeight: "bold",
+                          fontSize: "11px"
                         }}>
                           {participacion}%
                         </td>
                         <td style={{ 
-                          padding: "12px", 
+                          padding: "8px 4px", 
                           textAlign: "center", 
                           borderBottom: "1px solid #eee", 
                           fontWeight: "bold", 
-                          color: "#007bff" 
+                          color: "#007bff",
+                          fontSize: "11px"
                         }}>
                           ${totalParticipante.toFixed(2)}
                         </td>
                         <td style={{ 
-                          padding: "12px", 
+                          padding: "8px 4px", 
                           textAlign: "center", 
                           borderBottom: "1px solid #eee", 
-                          fontWeight: "bold" 
+                          fontWeight: "bold",
+                          fontSize: "11px"
                         }}>
                           {product.quantity}
                         </td>
                         <td style={{ 
-                          padding: "12px", 
+                          padding: "8px 4px", 
                           textAlign: "center", 
                           borderBottom: "1px solid #eee", 
                           fontWeight: "bold", 
-                          color: "#6f42c1" 
+                          color: "#6f42c1",
+                          fontSize: "11px"
                         }}>
                           ${totalEstetica.toFixed(2)}
                         </td>
                         <td style={{ 
-                          padding: "12px", 
+                          padding: "8px 4px", 
                           textAlign: "center", 
-                          borderBottom: "1px solid #eee" 
+                          borderBottom: "1px solid #eee",
+                          fontSize: "11px"
                         }}>
                           {formatDate(product.fechaRecepcion)}
                         </td>
                         <td style={{ 
-                          padding: "12px", 
+                          padding: "8px 4px", 
                           textAlign: "center", 
-                          borderBottom: "1px solid #eee" 
+                          borderBottom: "1px solid #eee",
+                          fontSize: "11px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
                         }}>
                           <span
                             style={{
@@ -453,8 +883,6 @@ const Inventario = ({ user }) => {
                               textDecoration: "underline"
                             }}
                             onClick={() => handleStoreClick(product.storeTag)}
-                            onMouseEnter={(e) => e.target.style.textDecoration = "underline"}
-                            onMouseLeave={(e) => e.target.style.textDecoration = "underline"}
                           >
                             {product.storeName}
                           </span>
@@ -471,33 +899,38 @@ const Inventario = ({ user }) => {
                 padding: "40px", 
                 textAlign: "center", 
                 color: "#666",
-                background: "white"
+                background: "white",
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
               }}>
                 {searchTerm ? "No se encontraron productos que coincidan con la búsqueda." : "No hay productos registrados en el inventario."}
               </div>
             )}
           </div>
 
-          {/* Summary Statistics */}
+          {/* Summary Statistics - Fixed height */}
           {filteredProducts.length > 0 && (
             <div style={{
-              marginTop: "20px",
+              marginTop: "12px",
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "15px"
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: "12px",
+              flexShrink: 0
             }}>
               <div style={{
                 background: "white",
                 border: "1px solid #ddd",
-                borderRadius: "8px",
-                padding: "20px",
+                borderRadius: "6px",
+                padding: "12px",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                 textAlign: "center"
               }}>
-                <h3 style={{ margin: "0 0 10px 0", color: "#333", fontSize: "16px" }}>
+                <h3 style={{ margin: "0 0 6px 0", color: "#333", fontSize: "12px" }}>
                   Total Productos
                 </h3>
-                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#007bff" }}>
+                <div style={{ fontSize: "18px", fontWeight: "bold", color: "#007bff" }}>
                   {filteredProducts.length}
                 </div>
               </div>
@@ -505,31 +938,31 @@ const Inventario = ({ user }) => {
               <div style={{
                 background: "white",
                 border: "1px solid #ddd",
-                borderRadius: "8px",
-                padding: "20px",
+                borderRadius: "6px",
+                padding: "12px",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                 textAlign: "center"
               }}>
-                <h3 style={{ margin: "0 0 10px 0", color: "#333", fontSize: "16px" }}>
-                  Productos Activos
+                <h3 style={{ margin: "0 0 6px 0", color: "#333", fontSize: "12px" }}>
+                  Total Piezas
                 </h3>
-                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#28a745" }}>
-                  {filteredProducts.filter(p => p.quantity > 0).length}
+                <div style={{ fontSize: "18px", fontWeight: "bold", color: "#28a745" }}>
+                  {totalPiezas}
                 </div>
               </div>
 
               <div style={{
                 background: "white",
                 border: "1px solid #ddd",
-                borderRadius: "8px",
-                padding: "20px",
+                borderRadius: "6px",
+                padding: "12px",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                 textAlign: "center"
               }}>
-                <h3 style={{ margin: "0 0 10px 0", color: "#333", fontSize: "16px" }}>
+                <h3 style={{ margin: "0 0 6px 0", color: "#333", fontSize: "12px" }}>
                   Total Tiendas
                 </h3>
-                <div style={{ fontSize: "24px", fontWeight: "bold", color: "#6f42c1" }}>
+                <div style={{ fontSize: "18px", fontWeight: "bold", color: "#6f42c1" }}>
                   {new Set(filteredProducts.map(p => p.storeId)).size}
                 </div>
               </div>

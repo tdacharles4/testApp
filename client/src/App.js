@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 // Pages
 import MainPage from "./pages/MainPage.jsx";
 import Login from "./pages/Login.jsx";
-import Registro from "./pages/Registro.jsx";
+import Entrada from "./pages/Entrada.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Historial from "./pages/Historial.jsx";
 import Inventario from "./pages/Inventario.jsx";
@@ -35,7 +35,7 @@ function App() {
           }}
         >
           {/* MAX WIDTH FOR ALL PAGES */}
-          <div style={{ width: "100%", maxWidth: "900px" }}>
+          <div style={{ width: "100%"}}>
             <Routes>
 
               <Route path="/" element={<MainPage user={user} />} />
@@ -46,8 +46,8 @@ function App() {
               />
 
               <Route
-                path="/registro"
-                element={<Registro user={user} />}
+                path="/registroEntrada"
+                element={<Entrada user={user} />}
               />
 
               <Route

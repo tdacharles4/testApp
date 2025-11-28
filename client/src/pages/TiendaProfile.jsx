@@ -12,83 +12,140 @@ const TiendaProfile = ({ user }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showEditStore, setShowEditStore] = useState(false);
+  
+  // New product state matching CrearTienda structure
   const [newProduct, setNewProduct] = useState({
     image: null,
     name: "",
+    nombreProducto: "",
+    description: "",
     price: "",
-    quantity: 0
+    quantity: 0,
+    fechaRecepcionHoy: true,
+    fechaRecepcion: new Date().toISOString().split('T')[0]
   });
+
+  // Edit store state matching CrearTienda structure
   const [editStoreData, setEditStoreData] = useState({
+    storeName: "",
+    storeTag: "",
+    storeDescription: "",
+    contractType: "",
+    contractPercentage: "",
+    contractPiso: "",
+    contacto: "",
+    banco: "",
+    numeroCuenta: "",
+    clabe: "",
+    tarjeta: ""
+  });
+
+  // Edit product state
+  const [editProductData, setEditProductData] = useState({
+    image: null,
     name: "",
-    tag: "",
-    location: "",
-    description: ""
+    nombreProducto: "",
+    description: "",
+    price: "",
+    quantity: 0,
+    fechaRecepcionHoy: true,
+    fechaRecepcion: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
     const fetchStoreData = async () => {
-        try {
+      try {
         const response = await fetch(`http://localhost:5000/api/tiendas/${storeName}`);
         const data = await response.json();
         setStore(data);
         // Initialize edit form with current store data
         setEditStoreData({
-            name: data.name || "",
-            tag: data.tag || "",
-            location: data.location || "",
-            description: data.description || ""
+          storeName: data.name || "",
+          storeTag: data.tag || "",
+          storeDescription: data.description || "",
+          contractType: data.contractType || "",
+          contractPercentage: data.contractValue || "",
+          contractPiso: data.contractValue || "",
+          contacto: data.contacto || "",
+          banco: data.banco || "",
+          numeroCuenta: data.numeroCuenta || "",
+          clabe: data.clabe || "",
+          tarjeta: data.tarjeta || ""
         });
-        } catch (error) {
+      } catch (error) {
         console.error("Error fetching store data:", error);
-        } finally {
+      } finally {
         setLoading(false);
-        }
+      }
     };
 
     fetchStoreData();
-    }, [storeName]);
-    
+  }, [storeName]);
+
   const handleEditProduct = (product) => {
     setEditingProduct(product);
-    setTempQuantity(product.quantity);
-    setTempPrice(product.price);
+    setEditProductData({
+      image: null, // We'll handle image updates separately
+      name: product.clave || "",
+      nombreProducto: product.name || "",
+      description: product.description || "",
+      price: product.price || "",
+      quantity: product.quantity || 0,
+      fechaRecepcionHoy: true, // Default to today for edits
+      fechaRecepcion: new Date().toISOString().split('T')[0]
+    });
   };
 
   const handleSaveProduct = async () => {
     try {
+      const formData = new FormData();
+      
+      // Add product data
+      if (editProductData.image) {
+        formData.append("productImage", editProductData.image);
+      }
+      formData.append("productClave", editProductData.name.trim());
+      formData.append("productNombre", editProductData.nombreProducto.trim());
+      formData.append("productDescription", editProductData.description.trim());
+      formData.append("productPrice", editProductData.price || "0");
+      formData.append("productQuantity", editProductData.quantity.toString());
+      formData.append("productFechaRecepcion", editProductData.fechaRecepcion);
+
       const response = await fetch(`http://localhost:5000/api/tiendas/${store._id}/products/${editingProduct._id}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
-        body: JSON.stringify({
-          quantity: tempQuantity,
-          price: tempPrice,
-        }),
+        body: formData,
       });
 
       if (response.ok) {
-        // Update local state
-        setStore(prevStore => ({
-          ...prevStore,
-          products: prevStore.products.map(p => 
-            p._id === editingProduct._id 
-              ? { ...p, quantity: tempQuantity, price: tempPrice }
-              : p
-          )
-        }));
+        const updatedStore = await response.json();
+        setStore(updatedStore);
         setEditingProduct(null);
+        alert("Producto actualizado exitosamente");
       } else {
         console.error("Error updating product");
+        alert("Error al actualizar el producto");
       }
     } catch (error) {
       console.error("Error updating product:", error);
+      alert("Error al actualizar el producto");
     }
   };
 
   const handleCancelEdit = () => {
     setEditingProduct(null);
+    setEditProductData({
+      image: null,
+      name: "",
+      nombreProducto: "",
+      description: "",
+      price: "",
+      quantity: 0,
+      fechaRecepcionHoy: true,
+      fechaRecepcion: new Date().toISOString().split('T')[0]
+    });
   };
 
   const handleDeleteStore = async () => {
@@ -115,16 +172,19 @@ const TiendaProfile = ({ user }) => {
 
   const handleAddProduct = async () => {
     try {
-      if (!newProduct.name.trim() || !newProduct.image) {
-        alert("Por favor completa el nombre y selecciona una imagen del producto");
+      if (!newProduct.name.trim() || !newProduct.image || !newProduct.nombreProducto.trim()) {
+        alert("Por favor completa la clave, nombre y selecciona una imagen del producto");
         return;
       }
 
       const formData = new FormData();
       formData.append("productImage", newProduct.image);
       formData.append("productClave", newProduct.name.trim());
+      formData.append("productNombre", newProduct.nombreProducto.trim());
+      formData.append("productDescription", newProduct.description.trim());
       formData.append("productPrice", newProduct.price || "0");
       formData.append("productQuantity", newProduct.quantity.toString());
+      formData.append("productFechaRecepcion", newProduct.fechaRecepcion);
 
       const response = await fetch(`http://localhost:5000/api/tiendas/${store._id}/products`, {
         method: "POST",
@@ -141,8 +201,12 @@ const TiendaProfile = ({ user }) => {
         setNewProduct({
           image: null,
           name: "",
+          nombreProducto: "",
+          description: "",
           price: "",
-          quantity: 0
+          quantity: 0,
+          fechaRecepcionHoy: true,
+          fechaRecepcion: new Date().toISOString().split('T')[0]
         });
         alert("Producto agregado exitosamente");
       } else {
@@ -157,18 +221,76 @@ const TiendaProfile = ({ user }) => {
 
   const handleEditStore = async () => {
     try {
-      if (!editStoreData.name.trim() || !editStoreData.tag.trim()) {
+      if (!editStoreData.storeName.trim() || !editStoreData.storeTag.trim()) {
         alert("Por favor completa el nombre y clave de la tienda");
         return;
       }
 
+      if (editStoreData.storeTag.length !== 4) {
+        alert("La clave de tienda debe tener exactamente 4 caracteres");
+        return;
+      }
+
+      // Contract validation
+      if (!editStoreData.contractType) {
+        alert("Por favor selecciona un tipo de contrato");
+        return;
+      }
+
+      if (editStoreData.contractType === "Porcentaje" && (!editStoreData.contractPercentage || parseFloat(editStoreData.contractPercentage) < 0 || parseFloat(editStoreData.contractPercentage) > 100)) {
+        alert("Por favor ingresa un porcentaje válido entre 0 y 100");
+        return;
+      }
+
+      if (editStoreData.contractType === "Piso" && (!editStoreData.contractPiso || parseFloat(editStoreData.contractPiso) < 0)) {
+        alert("Por favor ingresa un monto de piso válido");
+        return;
+      }
+
+      // Bank field validations
+      if (editStoreData.numeroCuenta && (editStoreData.numeroCuenta.length < 10 || editStoreData.numeroCuenta.length > 12)) {
+        alert("El número de cuenta debe tener entre 10 y 12 caracteres");
+        return;
+      }
+
+      if (editStoreData.clabe && editStoreData.clabe.length !== 18) {
+        alert("La CLABE debe tener exactamente 18 caracteres");
+        return;
+      }
+
+      if (editStoreData.tarjeta && editStoreData.tarjeta.length !== 16) {
+        alert("El número de tarjeta debe tener exactamente 16 caracteres");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("storeName", editStoreData.storeName.trim());
+      formData.append("storeTag", editStoreData.storeTag.trim().toUpperCase());
+      formData.append("contractType", editStoreData.contractType);
+      
+      if (editStoreData.contractType === "Porcentaje") {
+        formData.append("contractValue", editStoreData.contractPercentage);
+      } else if (editStoreData.contractType === "Piso") {
+        formData.append("contractValue", editStoreData.contractPiso);
+      }
+      
+      if (editStoreData.storeDescription.trim()) {
+        formData.append("storeDescription", editStoreData.storeDescription.trim());
+      }
+      
+      // Add contact and bank information
+      if (editStoreData.contacto.trim()) formData.append("contacto", editStoreData.contacto.trim());
+      if (editStoreData.banco.trim()) formData.append("banco", editStoreData.banco.trim());
+      if (editStoreData.numeroCuenta.trim()) formData.append("numeroCuenta", editStoreData.numeroCuenta.trim());
+      if (editStoreData.clabe.trim()) formData.append("clabe", editStoreData.clabe.trim());
+      if (editStoreData.tarjeta.trim()) formData.append("tarjeta", editStoreData.tarjeta.trim());
+
       const response = await fetch(`http://localhost:5000/api/tiendas/${store._id}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
-        body: JSON.stringify(editStoreData),
+        body: formData,
       });
 
       if (response.ok) {
@@ -186,6 +308,7 @@ const TiendaProfile = ({ user }) => {
     }
   };
 
+  // Helper functions for product management
   const handleNewProductImage = (file) => {
     setNewProduct(prev => ({ ...prev, image: file }));
   };
@@ -194,12 +317,69 @@ const TiendaProfile = ({ user }) => {
     setNewProduct(prev => ({ ...prev, name: value }));
   };
 
+  const handleNewProductNombre = (value) => {
+    setNewProduct(prev => ({ ...prev, nombreProducto: value }));
+  };
+
+  const handleNewProductDescription = (value) => {
+    setNewProduct(prev => ({ ...prev, description: value }));
+  };
+
   const handleNewProductPrice = (value) => {
     setNewProduct(prev => ({ ...prev, price: value }));
   };
 
   const handleNewProductQuantity = (value) => {
     setNewProduct(prev => ({ ...prev, quantity: Math.max(0, value) }));
+  };
+
+  const handleNewProductFechaRecepcionHoy = (checked) => {
+    setNewProduct(prev => ({ 
+      ...prev, 
+      fechaRecepcionHoy: checked,
+      fechaRecepcion: checked ? new Date().toISOString().split('T')[0] : prev.fechaRecepcion
+    }));
+  };
+
+  const handleNewProductFechaRecepcion = (date) => {
+    setNewProduct(prev => ({ ...prev, fechaRecepcion: date }));
+  };
+
+  // Helper functions for edit product
+  const handleEditProductImage = (file) => {
+    setEditProductData(prev => ({ ...prev, image: file }));
+  };
+
+  const handleEditProductName = (value) => {
+    setEditProductData(prev => ({ ...prev, name: value }));
+  };
+
+  const handleEditProductNombre = (value) => {
+    setEditProductData(prev => ({ ...prev, nombreProducto: value }));
+  };
+
+  const handleEditProductDescription = (value) => {
+    setEditProductData(prev => ({ ...prev, description: value }));
+  };
+
+  const handleEditProductPrice = (value) => {
+    setEditProductData(prev => ({ ...prev, price: value }));
+  };
+
+  const handleEditProductQuantity = (value) => {
+    setEditProductData(prev => ({ ...prev, quantity: Math.max(0, value) }));
+  };
+
+  const handleEditProductFechaRecepcionHoy = (checked) => {
+    setEditProductData(prev => ({ 
+      ...prev, 
+      fechaRecepcionHoy: checked,
+      fechaRecepcion: checked ? new Date().toISOString().split('T')[0] : prev.fechaRecepcion
+    }));
+  };
+
+  const handleEditProductFechaRecepcion = (date) => {
+    setEditProductData(prev => ({ ...prev, fechaRecepcion: date }));
   };
 
   const calculateTotalItems = () => {
@@ -299,9 +479,14 @@ const TiendaProfile = ({ user }) => {
             <div>
               <strong>Tag:</strong> {store.tag}
             </div>
-            {store.location && (
+            {store.contractType && (
               <div>
-                <strong>Ubicación:</strong> {store.location}
+                <strong>Tipo de Contrato:</strong> {store.contractType}
+              </div>
+            )}
+            {store.contractValue && (
+              <div>
+                <strong>Valor de Contrato:</strong> {store.contractType === "Porcentaje" ? `${store.contractValue}%` : `$${store.contractValue}`}
               </div>
             )}
             <div>
@@ -440,102 +625,36 @@ const TiendaProfile = ({ user }) => {
                     
                     {/* Quantity Column */}
                     <td style={{ padding: "12px", textAlign: "center" }}>
-                      {editingProduct?._id === product._id ? (
-                        <input
-                          type="number"
-                          value={tempQuantity}
-                          onChange={(e) => setTempQuantity(parseInt(e.target.value) || 0)}
-                          style={{
-                            width: "80px",
-                            padding: "4px",
-                            textAlign: "center",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px"
-                          }}
-                          min="0"
-                        />
-                      ) : (
-                        <span style={{ 
-                          fontWeight: "bold",
-                          color: product.quantity === 0 ? "#dc3545" : "#28a745"
-                        }}>
-                          {product.quantity}
-                        </span>
-                      )}
+                      <span style={{ 
+                        fontWeight: "bold",
+                        color: product.quantity === 0 ? "#dc3545" : "#28a745"
+                      }}>
+                        {product.quantity}
+                      </span>
                     </td>
 
                     {/* Price Column */}
                     <td style={{ padding: "12px", textAlign: "right" }}>
-                      {editingProduct?._id === product._id ? (
-                        <input
-                          type="number"
-                          value={tempPrice}
-                          onChange={(e) => setTempPrice(parseFloat(e.target.value) || 0)}
-                          step="0.01"
-                          min="0"
-                          style={{
-                            width: "100px",
-                            padding: "4px",
-                            textAlign: "right",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px"
-                          }}
-                        />
-                      ) : (
-                        `$${product.price.toFixed(2)}`
-                      )}
+                      {`$${product.price.toFixed(2)}`}
                     </td>
 
                     {/* Actions Column (Admin only) */}
                     {user?.role === "admin" && (
                       <td style={{ padding: "12px", textAlign: "center" }}>
-                        {editingProduct?._id === product._id ? (
-                          <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                            <button
-                              onClick={handleSaveProduct}
-                              style={{
-                                padding: "6px 12px",
-                                background: "#28a745",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px"
-                              }}
-                            >
-                              Guardar
-                            </button>
-                            <button
-                              onClick={handleCancelEdit}
-                              style={{
-                                padding: "6px 12px",
-                                background: "#6c757d",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px"
-                              }}
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleEditProduct(product)}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#007bff",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "12px"
-                            }}
-                          >
-                            Editar
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleEditProduct(product)}
+                          style={{
+                            padding: "6px 12px",
+                            background: "#007bff",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "12px"
+                          }}
+                        >
+                          Editar
+                        </button>
                       </td>
                     )}
                   </tr>
@@ -588,7 +707,7 @@ const TiendaProfile = ({ user }) => {
             borderRadius: "8px",
             padding: "30px",
             width: "90%",
-            maxWidth: "500px",
+            maxWidth: "900px",
             boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
             maxHeight: "90vh",
             overflowY: "auto"
@@ -602,111 +721,374 @@ const TiendaProfile = ({ user }) => {
               Editar Tienda
             </h2>
 
+            {/* Store Information Card */}
             <div style={{
               background: "#fafafa",
               border: "1px solid #e0e0e0",
               borderRadius: "8px",
-              padding: "20px",
+              padding: "25px",
               marginBottom: "20px"
             }}>
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "8px", 
-                  fontWeight: "bold",
-                  color: "#333"
-                }}>
-                  Nombre de Tienda *
-                </label>
-                <input
-                  type="text"
-                  value={editStoreData.name}
-                  onChange={(e) => setEditStoreData(prev => ({ ...prev, name: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    fontSize: "16px"
-                  }}
-                  placeholder="Ej: Tienda Centro"
-                />
-              </div>
+              <h3 style={{ 
+                margin: "0 0 20px 0", 
+                color: "#333",
+                fontSize: "18px",
+                borderBottom: "2px solid #f0f0f0",
+                paddingBottom: "10px"
+              }}>
+                Información de la Tienda
+              </h3>
 
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "8px", 
-                  fontWeight: "bold",
-                  color: "#333"
-                }}>
-                  Clave Única de Tienda * (max 4 caracteres)
-                </label>
-                <input
-                  type="text"
-                  value={editStoreData.tag}
-                  onChange={(e) => setEditStoreData(prev => ({ ...prev, tag: e.target.value.toUpperCase() }))}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    fontSize: "16px",
-                    textTransform: "uppercase"
-                  }}
-                  placeholder="Ej: TCEN"
-                  maxLength="4"
-                />
-              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    Nombre de Tienda *
+                  </label>
+                  <input
+                    type="text"
+                    value={editStoreData.storeName}
+                    onChange={(e) => setEditStoreData(prev => ({ ...prev, storeName: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "16px"
+                    }}
+                    placeholder="Ej: Tienda Centro"
+                  />
+                </div>
 
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "8px", 
-                  fontWeight: "bold",
-                  color: "#333"
-                }}>
-                  Ubicación
-                </label>
-                <input
-                  type="text"
-                  value={editStoreData.location}
-                  onChange={(e) => setEditStoreData(prev => ({ ...prev, location: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    fontSize: "16px"
-                  }}
-                  placeholder="Ej: Av. Principal #123, Ciudad"
-                />
-              </div>
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    Clave Única de Tienda * (4 caracteres)
+                  </label>
+                  <input
+                    type="text"
+                    value={editStoreData.storeTag}
+                    onChange={(e) => setEditStoreData(prev => ({ ...prev, storeTag: e.target.value.toUpperCase() }))}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "16px",
+                      textTransform: "uppercase"
+                    }}
+                    placeholder="Ej: TCEN"
+                    maxLength="4"
+                  />
+                </div>
 
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "8px", 
-                  fontWeight: "bold",
-                  color: "#333"
-                }}>
-                  Descripción
-                </label>
-                <textarea
-                  value={editStoreData.description}
-                  onChange={(e) => setEditStoreData(prev => ({ ...prev, description: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    fontSize: "16px",
-                    minHeight: "80px",
-                    resize: "vertical"
-                  }}
-                  placeholder="Descripción opcional de la tienda..."
-                  maxLength="500"
-                />
+                {/* Contract Type */}
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "12px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    Tipo de Contrato *
+                  </label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="contractType"
+                        value="DCE"
+                        checked={editStoreData.contractType === "DCE"}
+                        onChange={(e) => setEditStoreData(prev => ({ ...prev, contractType: e.target.value }))}
+                      />
+                      <span style={{ fontWeight: "bold" }}>DCE</span>
+                    </label>
+                    
+                    <div style={{ marginLeft: "0" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                        <input
+                          type="radio"
+                          name="contractType"
+                          value="Porcentaje"
+                          checked={editStoreData.contractType === "Porcentaje"}
+                          onChange={(e) => setEditStoreData(prev => ({ ...prev, contractType: e.target.value }))}
+                        />
+                        <span style={{ fontWeight: "bold" }}>Porcentaje</span>
+                      </label>
+                      {editStoreData.contractType === "Porcentaje" && (
+                        <div style={{ marginLeft: "30px", marginTop: "10px" }}>
+                          <div style={{ position: "relative", maxWidth: "200px" }}>
+                            <input
+                              type="number"
+                              value={editStoreData.contractPercentage}
+                              onChange={(e) => setEditStoreData(prev => ({ ...prev, contractPercentage: e.target.value }))}
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              style={{
+                                width: "100%",
+                                padding: "10px 40px 10px 12px",
+                                border: "1px solid #ccc",
+                                borderRadius: "6px",
+                                fontSize: "14px"
+                              }}
+                              placeholder="0.00"
+                            />
+                            <span style={{
+                              position: "absolute",
+                              right: "12px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "#666",
+                              fontWeight: "bold"
+                            }}>
+                              %
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div style={{ marginLeft: "0" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                        <input
+                          type="radio"
+                          name="contractType"
+                          value="Piso"
+                          checked={editStoreData.contractType === "Piso"}
+                          onChange={(e) => setEditStoreData(prev => ({ ...prev, contractType: e.target.value }))}
+                        />
+                        <span style={{ fontWeight: "bold" }}>Piso</span>
+                      </label>
+                      {editStoreData.contractType === "Piso" && (
+                        <div style={{ marginLeft: "30px", marginTop: "10px" }}>
+                          <div style={{ position: "relative", maxWidth: "200px" }}>
+                            <span style={{
+                              position: "absolute",
+                              left: "12px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "#666",
+                              fontWeight: "bold"
+                            }}>
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              value={editStoreData.contractPiso}
+                              onChange={(e) => setEditStoreData(prev => ({ ...prev, contractPiso: e.target.value }))}
+                              step="0.01"
+                              min="0"
+                              style={{
+                                width: "100%",
+                                padding: "10px 12px 10px 35px",
+                                border: "1px solid #ccc",
+                                borderRadius: "6px",
+                                fontSize: "14px"
+                              }}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="contractType"
+                        value="Estetica Unisex"
+                        checked={editStoreData.contractType === "Estetica Unisex"}
+                        onChange={(e) => setEditStoreData(prev => ({ ...prev, contractType: e.target.value }))}
+                      />
+                      <span style={{ fontWeight: "bold" }}>Estetica Unisex</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    Descripción
+                  </label>
+                  <textarea
+                    value={editStoreData.storeDescription}
+                    onChange={(e) => setEditStoreData(prev => ({ ...prev, storeDescription: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      minHeight: "80px",
+                      resize: "vertical"
+                    }}
+                    placeholder="Descripción opcional de la tienda..."
+                    maxLength="500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact and Bank Information Card */}
+            <div style={{
+              background: "#fafafa",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              padding: "25px",
+              marginBottom: "20px"
+            }}>
+              <h3 style={{ 
+                margin: "0 0 20px 0", 
+                color: "#333",
+                fontSize: "18px",
+                borderBottom: "2px solid #f0f0f0",
+                paddingBottom: "10px"
+              }}>
+                Información de Contacto y Banco
+              </h3>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    Contacto
+                  </label>
+                  <input
+                    type="email"
+                    value={editStoreData.contacto}
+                    onChange={(e) => setEditStoreData(prev => ({ ...prev, contacto: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "14px"
+                    }}
+                    placeholder="correo@ejemplo.com"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    Banco
+                  </label>
+                  <input
+                    type="text"
+                    value={editStoreData.banco}
+                    onChange={(e) => setEditStoreData(prev => ({ ...prev, banco: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "14px"
+                    }}
+                    placeholder="Nombre del banco"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    Número de Cuenta (10-12 caracteres)
+                  </label>
+                  <input
+                    type="text"
+                    value={editStoreData.numeroCuenta}
+                    onChange={(e) => setEditStoreData(prev => ({ ...prev, numeroCuenta: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "14px"
+                    }}
+                    placeholder="Número de cuenta bancaria"
+                    maxLength="12"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    CLABE (18 caracteres)
+                  </label>
+                  <input
+                    type="text"
+                    value={editStoreData.clabe}
+                    onChange={(e) => setEditStoreData(prev => ({ ...prev, clabe: e.target.value }))}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "14px"
+                    }}
+                    placeholder="CLABE interbancaria"
+                    maxLength="18"
+                  />
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333"
+                  }}>
+                    Número de Tarjeta (16 caracteres)
+                  </label>
+                  <input
+                    type="text"
+                    value={editStoreData.tarjeta.replace(/(.{4})/g, '$1 ').trim()}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\s/g, '');
+                      if (value.length <= 16) {
+                        setEditStoreData(prev => ({ ...prev, tarjeta: value }));
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      letterSpacing: "1px"
+                    }}
+                    placeholder="1234 5678 9012 3456"
+                    maxLength="19"
+                  />
+                </div>
               </div>
             </div>
 
@@ -724,7 +1106,7 @@ const TiendaProfile = ({ user }) => {
                   fontWeight: "bold"
                 }}
                 onClick={handleEditStore}
-                disabled={!editStoreData.name.trim() || !editStoreData.tag.trim()}
+                disabled={!editStoreData.storeName.trim() || !editStoreData.storeTag.trim() || !editStoreData.contractType}
               >
                 Guardar Cambios
               </button>
@@ -768,7 +1150,7 @@ const TiendaProfile = ({ user }) => {
             borderRadius: "8px",
             padding: "30px",
             width: "90%",
-            maxWidth: "500px",
+            maxWidth: "800px",
             boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
             maxHeight: "90vh",
             overflowY: "auto"
@@ -786,75 +1168,141 @@ const TiendaProfile = ({ user }) => {
               background: "#fafafa",
               border: "1px solid #e0e0e0",
               borderRadius: "8px",
-              padding: "20px",
+              padding: "25px",
               marginBottom: "20px"
             }}>
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "8px", 
-                  fontWeight: "bold",
-                  color: "#333"
-                }}>
-                  Imagen del Producto *
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleNewProductImage(e.target.files[0])}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    background: "white"
-                  }}
-                />
-                {newProduct.image && (
-                  <span style={{ 
-                    display: "block", 
-                    marginTop: "5px", 
-                    color: "#28a745",
-                    fontSize: "14px"
-                  }}>
-                    ✓ Imagen seleccionada
-                  </span>
-                )}
-              </div>
-
-              <div style={{ marginBottom: "15px" }}>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "8px", 
-                  fontWeight: "bold",
-                  color: "#333"
-                }}>
-                  Clave del Producto *
-                </label>
-                <input
-                  type="text"
-                  value={newProduct.name}
-                  onChange={(e) => handleNewProductName(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    fontSize: "16px"
-                  }}
-                  placeholder="Ej: PROD001"
-                />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px", marginBottom: "15px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "20px" }}>
                 <div>
                   <label style={{ 
                     display: "block", 
-                    marginBottom: "8px", 
+                    marginBottom: "10px", 
                     fontWeight: "bold",
-                    color: "#333"
+                    color: "#333",
+                    fontSize: "15px"
                   }}>
-                    Precio *
+                    Imagen del Producto *
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleNewProductImage(e.target.files[0])}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      background: "white"
+                    }}
+                  />
+                  {newProduct.image && (
+                    <span style={{ 
+                      display: "block", 
+                      marginTop: "8px", 
+                      color: "#28a745",
+                      fontSize: "14px",
+                      fontWeight: "bold"
+                    }}>
+                      ✓ Imagen seleccionada
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "10px", 
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "15px"
+                  }}>
+                    Clave del Producto *
+                  </label>
+                  <input
+                    type="text"
+                    value={newProduct.name}
+                    onChange={(e) => handleNewProductName(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "15px",
+                      background: newProduct.image ? "white" : "#f8f9fa",
+                      boxSizing: "border-box"
+                    }}
+                    placeholder="Ej: PROD001"
+                    disabled={!newProduct.image}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ 
+                  display: "block", 
+                  marginBottom: "10px", 
+                  fontWeight: "bold",
+                  color: "#333",
+                  fontSize: "15px"
+                }}>
+                  Nombre de Producto *
+                </label>
+                <input
+                  type="text"
+                  value={newProduct.nombreProducto}
+                  onChange={(e) => handleNewProductNombre(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #ccc",
+                    borderRadius: "6px",
+                    fontSize: "15px",
+                    background: newProduct.image ? "white" : "#f8f9fa",
+                    boxSizing: "border-box"
+                  }}
+                  placeholder="Ej: Camiseta Básica Negra"
+                  disabled={!newProduct.image}
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ 
+                  display: "block", 
+                  marginBottom: "10px", 
+                  fontWeight: "bold",
+                  color: "#333",
+                  fontSize: "15px"
+                }}>
+                  Descripción del Producto
+                </label>
+                <textarea
+                  value={newProduct.description}
+                  onChange={(e) => handleNewProductDescription(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #ccc",
+                    borderRadius: "6px",
+                    fontSize: "15px",
+                    minHeight: "80px",
+                    resize: "vertical",
+                    background: newProduct.image ? "white" : "#f8f9fa",
+                    boxSizing: "border-box"
+                  }}
+                  placeholder="Descripción del producto..."
+                  disabled={!newProduct.image}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "10px", 
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "15px"
+                  }}>
+                    Precio del Producto *
                   </label>
                   <div style={{ position: "relative" }}>
                     <span style={{
@@ -863,7 +1311,8 @@ const TiendaProfile = ({ user }) => {
                       top: "50%",
                       transform: "translateY(-50%)",
                       color: "#666",
-                      fontWeight: "bold"
+                      fontWeight: "bold",
+                      fontSize: "15px"
                     }}>
                       $
                     </span>
@@ -875,12 +1324,15 @@ const TiendaProfile = ({ user }) => {
                       min="0"
                       style={{
                         width: "100%",
-                        padding: "12px 12px 12px 30px",
+                        padding: "10px 12px 10px 35px",
                         border: "1px solid #ccc",
                         borderRadius: "6px",
-                        fontSize: "16px"
+                        fontSize: "15px",
+                        background: newProduct.image ? "white" : "#f8f9fa",
+                        boxSizing: "border-box"
                       }}
                       placeholder="0.00"
+                      disabled={!newProduct.image}
                     />
                   </div>
                 </div>
@@ -888,30 +1340,33 @@ const TiendaProfile = ({ user }) => {
                 <div>
                   <label style={{ 
                     display: "block", 
-                    marginBottom: "8px", 
+                    marginBottom: "10px", 
                     fontWeight: "bold",
-                    color: "#333"
+                    color: "#333",
+                    fontSize: "15px"
                   }}>
-                    Cantidad Inicial
+                    Cantidad Inicial *
                   </label>
                   <div style={{ 
                     display: "flex", 
                     alignItems: "center", 
-                    gap: "10px",
-                    background: "white",
+                    gap: "12px",
+                    background: newProduct.image ? "white" : "#f8f9fa",
                     border: "1px solid #ccc",
                     borderRadius: "6px",
-                    padding: "8px"
+                    padding: "8px",
+                    opacity: newProduct.image ? 1 : 0.6
                   }}>
                     <button
                       onClick={() => handleNewProductQuantity(newProduct.quantity - 1)}
+                      disabled={!newProduct.image}
                       style={{
                         background: "#6c757d",
                         color: "white",
                         border: "none",
-                        borderRadius: "4px",
+                        borderRadius: "6px",
                         padding: "8px 12px",
-                        cursor: "pointer",
+                        cursor: newProduct.image ? "pointer" : "not-allowed",
                         fontSize: "16px",
                         fontWeight: "bold",
                         minWidth: "40px"
@@ -923,7 +1378,7 @@ const TiendaProfile = ({ user }) => {
                     <span style={{ 
                       flex: 1,
                       textAlign: "center",
-                      fontSize: "18px",
+                      fontSize: "16px",
                       fontWeight: "bold",
                       color: newProduct.quantity === 0 ? "#dc3545" : "#28a745"
                     }}>
@@ -932,13 +1387,14 @@ const TiendaProfile = ({ user }) => {
                     
                     <button
                       onClick={() => handleNewProductQuantity(newProduct.quantity + 1)}
+                      disabled={!newProduct.image}
                       style={{
                         background: "#6c757d",
                         color: "white",
                         border: "none",
-                        borderRadius: "4px",
+                        borderRadius: "6px",
                         padding: "8px 12px",
-                        cursor: "pointer",
+                        cursor: newProduct.image ? "pointer" : "not-allowed",
                         fontSize: "16px",
                         fontWeight: "bold",
                         minWidth: "40px"
@@ -947,6 +1403,71 @@ const TiendaProfile = ({ user }) => {
                       +
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* Date Section */}
+              <div style={{ 
+                borderTop: "2px solid #e0e0e0", 
+                paddingTop: "20px",
+                marginTop: "20px"
+              }}>
+                <div style={{ 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  alignItems: "center",
+                  gap: "15px"
+                }}>
+                  <label style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "10px",
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "15px",
+                    cursor: "pointer"
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={newProduct.fechaRecepcionHoy}
+                      onChange={(e) => handleNewProductFechaRecepcionHoy(e.target.checked)}
+                      style={{ transform: "scale(1.2)" }}
+                      disabled={!newProduct.image}
+                    />
+                    <span style={{ opacity: newProduct.image ? 1 : 0.6 }}>
+                      La fecha de recepción es hoy
+                    </span>
+                  </label>
+                  
+                  {!newProduct.fechaRecepcionHoy && (
+                    <div style={{ width: "100%", maxWidth: "250px" }}>
+                      <label style={{ 
+                        display: "block", 
+                        marginBottom: "8px", 
+                        fontWeight: "bold",
+                        color: "#333",
+                        fontSize: "14px",
+                        textAlign: "center"
+                      }}>
+                        Fecha de Recepción
+                      </label>
+                      <input
+                        type="date"
+                        value={newProduct.fechaRecepcion}
+                        onChange={(e) => handleNewProductFechaRecepcion(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "8px",
+                          border: "1px solid #ccc",
+                          borderRadius: "6px",
+                          fontSize: "14px",
+                          background: newProduct.image ? "white" : "#f8f9fa",
+                          boxSizing: "border-box"
+                        }}
+                        disabled={!newProduct.image}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -965,7 +1486,7 @@ const TiendaProfile = ({ user }) => {
                   fontWeight: "bold"
                 }}
                 onClick={handleAddProduct}
-                disabled={!newProduct.name.trim() || !newProduct.image}
+                disabled={!newProduct.name.trim() || !newProduct.image || !newProduct.nombreProducto.trim()}
               >
                 Agregar Producto
               </button>
@@ -986,10 +1507,394 @@ const TiendaProfile = ({ user }) => {
                   setNewProduct({
                     image: null,
                     name: "",
+                    nombreProducto: "",
+                    description: "",
                     price: "",
-                    quantity: 0
+                    quantity: 0,
+                    fechaRecepcionHoy: true,
+                    fechaRecepcion: new Date().toISOString().split('T')[0]
                   });
                 }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {editingProduct && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: "white",
+            borderRadius: "8px",
+            padding: "30px",
+            width: "90%",
+            maxWidth: "800px",
+            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            maxHeight: "90vh",
+            overflowY: "auto"
+          }}>
+            <h2 style={{ 
+              margin: "0 0 20px 0", 
+              color: "#333",
+              fontSize: "24px",
+              textAlign: "center"
+            }}>
+              Editar {editProductData.nombreProducto || "Producto"}
+            </h2>
+
+            <div style={{
+              background: "#fafafa",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              padding: "25px",
+              marginBottom: "20px"
+            }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "20px" }}>
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "10px", 
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "15px"
+                  }}>
+                    Imagen del Producto
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleEditProductImage(e.target.files[0])}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      background: "white"
+                    }}
+                  />
+                  {editProductData.image ? (
+                    <span style={{ 
+                      display: "block", 
+                      marginTop: "8px", 
+                      color: "#28a745",
+                      fontSize: "14px",
+                      fontWeight: "bold"
+                    }}>
+                      ✓ Nueva imagen seleccionada
+                    </span>
+                  ) : (
+                    <span style={{ 
+                      display: "block", 
+                      marginTop: "8px", 
+                      color: "#666",
+                      fontSize: "14px"
+                    }}>
+                      Se conservará la imagen actual
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "10px", 
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "15px"
+                  }}>
+                    Clave del Producto *
+                  </label>
+                  <input
+                    type="text"
+                    value={editProductData.name}
+                    onChange={(e) => handleEditProductName(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "15px",
+                      background: "white",
+                      boxSizing: "border-box"
+                    }}
+                    placeholder="Ej: PROD001"
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ 
+                  display: "block", 
+                  marginBottom: "10px", 
+                  fontWeight: "bold",
+                  color: "#333",
+                  fontSize: "15px"
+                }}>
+                  Nombre de Producto *
+                </label>
+                <input
+                  type="text"
+                  value={editProductData.nombreProducto}
+                  onChange={(e) => handleEditProductNombre(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #ccc",
+                    borderRadius: "6px",
+                    fontSize: "15px",
+                    background: "white",
+                    boxSizing: "border-box"
+                  }}
+                  placeholder="Ej: Camiseta Básica Negra"
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ 
+                  display: "block", 
+                  marginBottom: "10px", 
+                  fontWeight: "bold",
+                  color: "#333",
+                  fontSize: "15px"
+                }}>
+                  Descripción del Producto
+                </label>
+                <textarea
+                  value={editProductData.description}
+                  onChange={(e) => handleEditProductDescription(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #ccc",
+                    borderRadius: "6px",
+                    fontSize: "15px",
+                    minHeight: "80px",
+                    resize: "vertical",
+                    background: "white",
+                    boxSizing: "border-box"
+                  }}
+                  placeholder="Descripción del producto..."
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "10px", 
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "15px"
+                  }}>
+                    Precio del Producto *
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <span style={{
+                      position: "absolute",
+                      left: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "#666",
+                      fontWeight: "bold",
+                      fontSize: "15px"
+                    }}>
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      value={editProductData.price}
+                      onChange={(e) => handleEditProductPrice(e.target.value)}
+                      step="0.01"
+                      min="0"
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px 10px 35px",
+                        border: "1px solid #ccc",
+                        borderRadius: "6px",
+                        fontSize: "15px",
+                        background: "white",
+                        boxSizing: "border-box"
+                      }}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "10px", 
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "15px"
+                  }}>
+                    Cantidad *
+                  </label>
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "12px",
+                    background: "white",
+                    border: "1px solid #ccc",
+                    borderRadius: "6px",
+                    padding: "8px"
+                  }}>
+                    <button
+                      onClick={() => handleEditProductQuantity(editProductData.quantity - 1)}
+                      style={{
+                        background: "#6c757d",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        padding: "8px 12px",
+                        cursor: "pointer",
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                        minWidth: "40px"
+                      }}
+                    >
+                      -
+                    </button>
+                    
+                    <span style={{ 
+                      flex: 1,
+                      textAlign: "center",
+                      fontSize: "16px",
+                      fontWeight: "bold",
+                      color: editProductData.quantity === 0 ? "#dc3545" : "#28a745"
+                    }}>
+                      {editProductData.quantity}
+                    </span>
+                    
+                    <button
+                      onClick={() => handleEditProductQuantity(editProductData.quantity + 1)}
+                      style={{
+                        background: "#6c757d",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        padding: "8px 12px",
+                        cursor: "pointer",
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                        minWidth: "40px"
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Date Section */}
+              <div style={{ 
+                borderTop: "2px solid #e0e0e0", 
+                paddingTop: "20px",
+                marginTop: "20px"
+              }}>
+                <div style={{ 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  alignItems: "center",
+                  gap: "15px"
+                }}>
+                  <label style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "10px",
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "15px",
+                    cursor: "pointer"
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={editProductData.fechaRecepcionHoy}
+                      onChange={(e) => handleEditProductFechaRecepcionHoy(e.target.checked)}
+                      style={{ transform: "scale(1.2)" }}
+                    />
+                    <span>
+                      La fecha de recepción es hoy
+                    </span>
+                  </label>
+                  
+                  {!editProductData.fechaRecepcionHoy && (
+                    <div style={{ width: "100%", maxWidth: "250px" }}>
+                      <label style={{ 
+                        display: "block", 
+                        marginBottom: "8px", 
+                        fontWeight: "bold",
+                        color: "#333",
+                        fontSize: "14px",
+                        textAlign: "center"
+                      }}>
+                        Fecha de Recepción
+                      </label>
+                      <input
+                        type="date"
+                        value={editProductData.fechaRecepcion}
+                        onChange={(e) => handleEditProductFechaRecepcion(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "8px",
+                          border: "1px solid #ccc",
+                          borderRadius: "6px",
+                          fontSize: "14px",
+                          background: "white",
+                          boxSizing: "border-box"
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "15px" }}>
+              <button
+                style={{
+                  flex: 1,
+                  background: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "12px",
+                  cursor: "pointer",
+                  fontSize: "16px",
+                  fontWeight: "bold"
+                }}
+                onClick={handleSaveProduct}
+                disabled={!editProductData.name.trim() || !editProductData.nombreProducto.trim()}
+              >
+                Guardar Cambios
+              </button>
+              <button
+                style={{
+                  flex: 1,
+                  background: "#6c757d",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "12px",
+                  cursor: "pointer",
+                  fontSize: "16px",
+                  fontWeight: "bold"
+                }}
+                onClick={handleCancelEdit}
               >
                 Cancelar
               </button>
