@@ -16,9 +16,11 @@ const createStore = async (req, res) => {
     } = req.body;
 
     const productClaves = req.body.productClaves || [];
+    const productNombres = req.body.productNombres || []; // New field
     const productDescriptions = req.body.productDescriptions || [];
     const productPrices = req.body.productPrices || [];
     const productQuantities = req.body.productQuantities || [];
+    const productFechasRecepcion = req.body.productFechasRecepcion || []; // New field
     const productImages = req.files;
 
     if (!storeTag || storeTag.length > 4) {
@@ -43,15 +45,22 @@ const createStore = async (req, res) => {
       const price = parseFloat(productPrices[i]) || 0;
       const quantity = parseInt(productQuantities[i]) || 0;
 
+      // Handle reception date - use provided date or current date
+      let fechaRecepcion;
+      if (productFechasRecepcion[i]) {
+        fechaRecepcion = new Date(productFechasRecepcion[i]);
+      } else {
+        fechaRecepcion = new Date();
+      }
 
       products.push({
         clave: finalClave,
-        name: claveInput,
+        name: productNombres[i] || claveInput, // Use nombreProducto if provided, otherwise use clave
         description: productDescriptions[i] || "",
         imageUrl: productImages[i] ? `/uploads/${productImages[i].filename}` : "",
         price: price,
         quantity: quantity,
-        fechaRecepcion: new Date(productFechasRecepcion[i] || Date.now())
+        fechaRecepcion: fechaRecepcion
         // fechaSubida is automatically set by the model default
       });
     }

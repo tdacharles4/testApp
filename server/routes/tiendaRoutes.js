@@ -67,22 +67,39 @@ router.delete("/:storeId", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// Update store
-router.put("/:storeId", requireAuth, requireAdmin, async (req, res) => {
+// Update store - ENHANCED to include all store fields
+router.put("/:storeId", requireAuth, requireAdmin, upload.none(), async (req, res) => {
   try {
     const { storeId } = req.params;
-    const { name, tag, location, description } = req.body;
+    const { 
+      storeName, 
+      storeTag, 
+      storeDescription, 
+      contractType, 
+      contractValue,
+      contacto, 
+      banco, 
+      numeroCuenta, 
+      clabe, 
+      tarjeta 
+    } = req.body;
 
     const store = await Tienda.findById(storeId);
     if (!store) {
       return res.status(404).json({ message: 'Tienda no encontrada' });
     }
 
-    // Update store fields
-    store.name = name;
-    store.tag = tag.toUpperCase();
-    store.location = location || "";
-    store.description = description || "";
+    // Update store fields with new data structure
+    store.name = storeName;
+    store.tag = storeTag.toUpperCase();
+    store.description = storeDescription || "";
+    store.contractType = contractType || "";
+    store.contractValue = contractValue || "";
+    store.contacto = contacto || "";
+    store.banco = banco || "";
+    store.numeroCuenta = numeroCuenta || "";
+    store.clabe = clabe || "";
+    store.tarjeta = tarjeta || "";
 
     await store.save();
     res.json(store);
@@ -91,11 +108,18 @@ router.put("/:storeId", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// Update product in a store
-router.put("/:storeId/products/:productId", requireAuth, requireAdmin, async (req, res) => {
+// Update product in a store - ENHANCED to include all product fields
+router.put("/:storeId/products/:productId", requireAuth, requireAdmin, upload.single("productImage"), async (req, res) => {
   try {
     const { storeId, productId } = req.params;
-    const { quantity, price } = req.body;
+    const { 
+      productClave, 
+      productNombre, 
+      productDescription, 
+      productPrice, 
+      productQuantity,
+      productFechaRecepcion 
+    } = req.body;
 
     const store = await Tienda.findById(storeId);
     if (!store) {
@@ -107,9 +131,21 @@ router.put("/:storeId/products/:productId", requireAuth, requireAdmin, async (re
       return res.status(404).json({ message: 'Producto no encontrado' });
     }
 
-    // Update product fields
-    if (quantity !== undefined) product.quantity = quantity;
-    if (price !== undefined) product.price = price;
+    // Update product fields with new data structure
+    if (productClave !== undefined) {
+      product.clave = productClave;
+      product.name = productNombre || productClave;
+    }
+    if (productNombre !== undefined) product.name = productNombre;
+    if (productDescription !== undefined) product.description = productDescription;
+    if (productPrice !== undefined) product.price = parseFloat(productPrice) || 0;
+    if (productQuantity !== undefined) product.quantity = parseInt(productQuantity) || 0;
+    if (productFechaRecepcion !== undefined) product.fechaRecepcion = productFechaRecepcion;
+    
+    // Update image if provided
+    if (req.file) {
+      product.imageUrl = `/uploads/${req.file.filename}`;
+    }
 
     await store.save();
     res.json(store);
@@ -118,15 +154,26 @@ router.put("/:storeId/products/:productId", requireAuth, requireAdmin, async (re
   }
 });
 
-// Add product to store
+// Add product to store - ENHANCED to include all product fields
 router.post("/:storeId/products", requireAuth, requireAdmin, upload.single("productImage"), async (req, res) => {
   try {
     const { storeId } = req.params;
-    const { productClave, productPrice, productQuantity } = req.body;
+    const { 
+      productClave, 
+      productNombre, 
+      productDescription, 
+      productPrice, 
+      productQuantity,
+      productFechaRecepcion 
+    } = req.body;
     
     const store = await Tienda.findById(storeId);
     if (!store) {
       return res.status(404).json({ message: 'Tienda no encontrada' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'La imagen del producto es requerida' });
     }
 
     const finalClave = `${store.tag}-${productClave.toUpperCase()}`;
@@ -135,10 +182,12 @@ router.post("/:storeId/products", requireAuth, requireAdmin, upload.single("prod
 
     const newProduct = {
       clave: finalClave,
-      name: productClave.toUpperCase(),
-      imageUrl: `/uploads/${req.file?.filename || ""}`,
+      name: productNombre || productClave.toUpperCase(),
+      description: productDescription || "",
+      imageUrl: `/uploads/${req.file.filename}`,
       price: price,
-      quantity: quantity
+      quantity: quantity,
+      fechaRecepcion: productFechaRecepcion || new Date().toISOString().split('T')[0]
     };
 
     store.products.push(newProduct);
@@ -149,6 +198,5 @@ router.post("/:storeId/products", requireAuth, requireAdmin, upload.single("prod
     res.status(500).json({ message: error.message });
   }
 });
-
 
 export default router;

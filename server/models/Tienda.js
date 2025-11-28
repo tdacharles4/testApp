@@ -1,10 +1,22 @@
 import mongoose from "mongoose";
 
 const ProductSchema = new mongoose.Schema({
-  clave: String,
-  name: String,
-  description: String,
-  imageUrl: String,
+  clave: {
+    type: String,
+    required: true
+  },
+  name: {
+    type: String,
+    required: true
+  },
+  description: {
+    type: String,
+    default: ""
+  },
+  imageUrl: {
+    type: String,
+    required: true
+  },
   quantity: {
     type: Number,
     required: true,
@@ -21,7 +33,8 @@ const ProductSchema = new mongoose.Schema({
   },
   fechaRecepcion: {
     type: Date,
-    required: true
+    required: true,
+    default: Date.now
   }
 });
 
@@ -40,9 +53,13 @@ const TiendaSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    maxlength: 500
+    maxlength: 500,
+    default: ""
   },
-  location: String,
+  location: {
+    type: String,
+    default: ""
+  },
   // Tipo de Contrato
   contractType: {
     type: String,
@@ -54,17 +71,34 @@ const TiendaSchema = new mongoose.Schema({
     default: 0
   },
   // Informacion bancaria y de contacto
-  contacto: String,
-  banco: String,
-  numeroCuenta: String,
-  clabe: String,
-  tarjeta: String,
+  contacto: {
+    type: String,
+    default: ""
+  },
+  banco: {
+    type: String,
+    default: ""
+  },
+  numeroCuenta: {
+    type: String,
+    default: ""
+  },
+  clabe: {
+    type: String,
+    default: ""
+  },
+  tarjeta: {
+    type: String,
+    default: ""
+  },
   
   products: [ProductSchema],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User"
   }
+}, {
+  timestamps: true // Adds createdAt and updatedAt automatically
 });
 
 export default mongoose.model("Tienda", TiendaSchema);
