@@ -1,16 +1,16 @@
 import express from "express";
 import Venta from "../models/Ventas.js";
+import Tienda from "../models/Tienda.js"; // Make sure to import Tienda
 import requireAuth from "../middleware/requireAuth.js";
 
 const router = express.Router();
 
-// Helper function to generate sale ID
+// Helper function to generate sale ID (make sure this exists)
 const generateSaleId = async () => {
   const now = new Date();
-  const year = now.getFullYear().toString().slice(-2); // Last 2 digits of year
-  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // Month with leading zero
+  const year = now.getFullYear().toString().slice(-2);
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
   
-  // Find the last sale of current month to get the sequence number
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   
@@ -23,16 +23,14 @@ const generateSaleId = async () => {
   
   let sequenceNumber = 1;
   if (lastSale && lastSale.saleId) {
-    // Extract sequence number from last sale ID (last 4 digits)
     const lastSequence = parseInt(lastSale.saleId.slice(-4));
     sequenceNumber = lastSequence + 1;
   }
   
-  // Format: YYMMXXXX (4-digit sequence)
   return `${year}${month}${sequenceNumber.toString().padStart(4, '0')}`;
 };
 
-// Get all sales
+// EXISTING ROUTE - Get all sales
 router.get("/", async (req, res) => {
   try {
     const ventas = await Venta.find().populate("user", "name username email");
@@ -42,8 +40,103 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Create new sale
-// In VentaRoutes.js - update the create sale endpoint
+// NEW ROUTES FOR STOCK MANAGEMENT
+
+// Get current stock for a specific product in a store
+router.get("/stock/:storeTag/:productClave", async (req, res) => {
+  try {
+    const { storeTag, productClave } = req.params;
+    
+    const store = await Tienda.findOne({ tag: storeTag });
+    
+    if (!store) {
+      return res.status(404).json({ message: "Tienda no encontrada" });
+    }
+    
+    const product = store.products.find(p => p.clave === productClave);
+    
+    if (!product) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+    
+    res.json({
+      store: store.name,
+      product: product.name,
+      clave: product.clave,
+      quantity: product.quantity,
+      price: product.price
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get stock for all products in a store
+router.get("/stock/:storeTag", async (req, res) => {
+  try {
+    const { storeTag } = req.params;
+    
+    const store = await Tienda.findOne({ tag: storeTag });
+    
+    if (!store) {
+      return res.status(404).json({ message: "Tienda no encontrada" });
+    }
+    
+    res.json({
+      store: store.name,
+      products: store.products.map(product => ({
+        name: product.name,
+        clave: product.clave,
+        quantity: product.quantity,
+        price: product.price
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Update stock for a product (requires authentication)
+router.put("/stock/update", requireAuth, async (req, res) => {
+  try {
+    const { storeTag, productClave, newQuantity } = req.body;
+    
+    if (!storeTag || !productClave || newQuantity === undefined) {
+      return res.status(400).json({ message: "Faltan parámetros requeridos" });
+    }
+    
+    const result = await Tienda.findOneAndUpdate(
+      { 
+        "tag": storeTag,
+        "products.clave": productClave 
+      },
+      { 
+        $set: { "products.$.quantity": parseInt(newQuantity) } 
+      },
+      { new: true }
+    );
+    
+    if (!result) {
+      return res.status(404).json({ message: "Producto o tienda no encontrados" });
+    }
+    
+    const updatedProduct = result.products.find(p => p.clave === productClave);
+    
+    res.json({
+      success: true,
+      message: "Stock actualizado exitosamente",
+      product: {
+        name: updatedProduct.name,
+        clave: updatedProduct.clave,
+        quantity: updatedProduct.quantity
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// EXISTING ROUTE - Create new sale (UPDATED WITH STOCK REDUCTION)
 router.post("/crear", requireAuth, async (req, res) => {
   try {
     const { 
@@ -58,31 +151,24 @@ router.post("/crear", requireAuth, async (req, res) => {
       amountEfectivo, 
       amountTarjeta, 
       amountTransferencia,
-      storeContractType,  // Make sure this is included
-      storeContractValue  // Make sure this is included
+      storeContractType,
+      storeContractValue
     } = req.body;
 
-    // Get the complete product and store information
-    const storesRes = await fetch("http://localhost:5000/api/tiendas");
-    const storesData = await storesRes.json();
-    
-    // Find the current store info
-    const currentStore = storesData.find(s => s.tag === store);
+    // Find the store and product
+    const currentStore = await Tienda.findOne({ tag: store });
     if (!currentStore) {
       return res.status(404).json({ message: "Tienda no encontrada" });
     }
     
-    // Find the current product info
-    const allItems = storesData.flatMap(store => 
-      (store.products || []).map(product => ({
-        ...product,
-        storeTag: store.tag
-      }))
-    );
-    
-    const currentItem = allItems.find(i => i.clave === item);
+    const currentItem = currentStore.products.find(p => p.clave === item);
     if (!currentItem) {
       return res.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    // Check if product has sufficient stock
+    if (currentItem.quantity <= 0) {
+      return res.status(400).json({ message: "No hay suficiente stock para este producto" });
     }
 
     // Generate sale ID
@@ -108,22 +194,38 @@ router.post("/crear", requireAuth, async (req, res) => {
       amountEfectivo: amountEfectivo || 0,
       amountTarjeta: amountTarjeta || 0,
       amountTransferencia: amountTransferencia || 0,
-      // Store the contract information - use the data from request or fallback to store data
       storeContractType: storeContractType || currentStore.contractType,
       storeContractValue: storeContractValue || currentStore.contractValue || 0,
       date: date || new Date().toLocaleDateString("es-MX")
     });
 
     await venta.save();
+
+    // Update product quantity in the store (reduce by 1)
+    await Tienda.findOneAndUpdate(
+      { 
+        "tag": store,
+        "products.clave": item 
+      },
+      { 
+        $inc: { "products.$.quantity": -1 } 
+      }
+    );
+
     await venta.populate("user", "name username email");
     
-    res.status(201).json(venta);
+    res.status(201).json({
+      success: true,
+      venta,
+      message: "Venta registrada y stock actualizado exitosamente"
+    });
   } catch (error) {
+    console.error("Error creating sale:", error);
     res.status(500).json({ message: error.message });
   }
 });
 
-// Delete sale
+// EXISTING ROUTE - Delete sale
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const venta = await Venta.findById(req.params.id);
