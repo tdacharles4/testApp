@@ -6,10 +6,7 @@ export default function MainPage({user}) {
 
   return (
     <div className="main-container">
-
-
       <div className="button-grid">
-
         <button
           className="main-btn"
           disabled={!user}
@@ -18,8 +15,20 @@ export default function MainPage({user}) {
           Registrar Entrada
         </button>
 
+        <button
+          className="main-btn"
+          disabled={!user}
+          onClick={() => user && navigate("/salidas")}
+        >
+          Registro de Salidas
+        </button>
+
         <button className="main-btn" onClick={() => navigate("/dashboard")}>
           Dashboard
+        </button>
+
+        <button className="main-btn" onClick={() => navigate("/marcas")}>
+          Listado de Marcas
         </button>
 
         <button className="main-btn" onClick={() => navigate("/historial")}>

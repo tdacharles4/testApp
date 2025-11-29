@@ -59,6 +59,11 @@ export default function Entrada() {
         setItemPrice(found.price || 0);
         // Set amount to full price by default
         setAmount(found.price || "");
+        
+        // Show stock warning if low
+        if (found.quantity <= 0) {
+          alert("⚠️ Este producto está agotado. No se puede registrar venta.");
+        }
       }
     } else {
       setItemPrice(0);
@@ -266,6 +271,12 @@ export default function Entrada() {
       return;
     }
 
+    // Check if item has sufficient stock
+    if (foundItem.quantity <= 0) {
+      alert("Error: No hay suficiente stock para este producto");
+      return;
+    }
+
     const sale = {
       store: selectedStore,
       item: selectedItem,
@@ -294,25 +305,48 @@ export default function Entrada() {
         body: JSON.stringify(sale),
       });
 
-      if (!res.ok) return alert("Error registrando la venta");
+      if (!res.ok) {
+        const errorData = await res.json();
+        alert(`Error registrando la venta: ${errorData.message}`);
+        return;
+      }
 
-      alert("Venta registrada exitosamente");
-      setModalOpen(false);
+      const result = await res.json();
       
-      // Reset form
-      setSelectedStore("");
-      setSelectedItem("");
-      setAmount("");
-      setItemPrice(0);
-      setDiscountEnabled(false);
-      setDiscountType("percentage");
-      setDiscountValue("");
-      setMultiplePayments(false);
-      setPaymentMethods({
-        efectivo: { selected: false, amount: "" },
-        tarjeta: { selected: false, amount: "" },
-        transferencia: { selected: false, amount: "" }
-      });
+      if (result.success) {
+        alert("Venta registrada exitosamente y stock actualizado");
+        setModalOpen(false);
+        
+        // Reset form
+        setSelectedStore("");
+        setSelectedItem("");
+        setAmount("");
+        setItemPrice(0);
+        setDiscountEnabled(false);
+        setDiscountType("percentage");
+        setDiscountValue("");
+        setMultiplePayments(false);
+        setPaymentMethods({
+          efectivo: { selected: false, amount: "" },
+          tarjeta: { selected: false, amount: "" },
+          transferencia: { selected: false, amount: "" }
+        });
+
+        // Refresh the items list to reflect updated stock
+        const storesRes = await fetch("http://localhost:5000/api/tiendas");
+        const storesData = await storesRes.json();
+        const allItems = storesData.flatMap((store) =>
+          (store.products || []).map((item) => ({
+            ...item,
+            storeTag: store.tag,
+            storeName: store.name,
+          }))
+        );
+        setItems(allItems);
+        setFilteredItems(allItems);
+      } else {
+        alert("Error registrando la venta");
+      }
     } catch (error) {
       console.error("Error:", error);
       alert("Error registrando la venta");
@@ -415,8 +449,17 @@ export default function Entrada() {
           >
             <option value="">Seleccionar artículo</option>
             {filteredItems.map((item) => (
-              <option key={item.clave} value={item.clave}>
-                {item.name} ({item.clave}) - ${item.price?.toFixed(2) || "0.00"}
+              <option 
+                key={item.clave} 
+                value={item.clave}
+                disabled={item.quantity <= 0}
+                style={{
+                  color: item.quantity <= 0 ? '#dc3545' : 'inherit',
+                  backgroundColor: item.quantity <= 0 ? '#fff5f5' : 'inherit'
+                }}
+              >
+                {item.name} ({item.clave}) - ${item.price?.toFixed(2) || "0.00"} 
+                {item.quantity <= 0 ? ' - SIN STOCK' : ` - Stock: ${item.quantity}`}
               </option>
             ))}
           </select>

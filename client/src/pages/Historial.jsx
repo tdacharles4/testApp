@@ -14,7 +14,8 @@ const Historial = ({ user }) => {
     codigo: { active: false, selected: [] },
     marca: { active: false, selected: [] },
     tipoPago: { active: false, selected: [] },
-    contrato: { active: false, selected: [] }
+    contrato: { active: false, selected: [] },
+    registra: { active: false, selected: [] } // New filter for registra
   });
 
   const [showFilter, setShowFilter] = useState({
@@ -22,7 +23,8 @@ const Historial = ({ user }) => {
     codigo: false,
     marca: false,
     tipoPago: false,
-    contrato: false
+    contrato: false,
+    registra: false // New filter toggle for registra
   });
 
   useEffect(() => {
@@ -127,6 +129,17 @@ const Historial = ({ user }) => {
       if (field === 'codigo') return venta.item.clave;
       if (field === 'marca') return venta.store.name;
       if (field === 'contrato') return venta.storeContractType;
+      if (field === 'registra') {
+        const user = venta.user;
+        let registeredBy = 'No especificado';
+
+        if (typeof user === 'object' && user !== null) {
+          registeredBy = user.name || user.username || 'No especificado';
+        } else if (typeof user === 'string') {
+          registeredBy = user;
+        }
+        return registeredBy; // FIXED: return registeredBy instead of user
+      }
       return null;
     }).filter(Boolean);
     
@@ -195,6 +208,22 @@ const Historial = ({ user }) => {
       );
     }
 
+    // Registra filter
+    if (filters.registra.active && filters.registra.selected.length > 0) {
+      filtered = filtered.filter(venta => {
+        const user = venta.user;
+        let registeredBy = 'No especificado';
+        
+        if (typeof user === 'object' && user !== null) {
+          registeredBy = user.name || user.username || 'No especificado';
+        } else if (typeof user === 'string') {
+          registeredBy = user;
+        }
+        
+        return filters.registra.selected.includes(registeredBy);
+      });
+    }
+
     setFilteredVentas(filtered);
   };
 
@@ -250,6 +279,16 @@ const Historial = ({ user }) => {
     }));
   };
 
+  const updateRegistraFilter = (selected) => {
+    setFilters(prev => ({
+      ...prev,
+      registra: {
+        active: selected.length > 0,
+        selected
+      }
+    }));
+  };
+
   // Clear all filters
   const clearAllFilters = () => {
     setFilters({
@@ -257,14 +296,16 @@ const Historial = ({ user }) => {
       codigo: { active: false, selected: [] },
       marca: { active: false, selected: [] },
       tipoPago: { active: false, selected: [] },
-      contrato: { active: false, selected: [] }
+      contrato: { active: false, selected: [] },
+      registra: { active: false, selected: [] }
     });
     setShowFilter({
       date: false,
       codigo: false,
       marca: false,
       tipoPago: false,
-      contrato: false
+      contrato: false,
+      registra: false
     });
   };
 
@@ -325,7 +366,7 @@ const Historial = ({ user }) => {
       </div>
 
       {/* Filters Summary */}
-      {(filters.date.active || filters.codigo.active || filters.marca.active || filters.tipoPago.active || filters.contrato.active) && (
+      {(filters.date.active || filters.codigo.active || filters.marca.active || filters.tipoPago.active || filters.contrato.active || filters.registra.active) && (
         <div style={{
           background: "#e7f3ff",
           border: "1px solid #b3d9ff",
@@ -361,6 +402,11 @@ const Historial = ({ user }) => {
             {filters.contrato.active && (
               <span style={{ marginLeft: "15px", padding: "4px 8px", background: "white", borderRadius: "4px", fontSize: "12px" }}>
                 📝 Contrato: {filters.contrato.selected.join(", ")}
+              </span>
+            )}
+            {filters.registra.active && (
+              <span style={{ marginLeft: "15px", padding: "4px 8px", background: "white", borderRadius: "4px", fontSize: "12px" }}>
+                👤 Registra: {filters.registra.selected.length} seleccionados
               </span>
             )}
           </div>
@@ -453,7 +499,7 @@ const Historial = ({ user }) => {
             <table style={{ 
               width: "100%", 
               borderCollapse: "collapse",
-              minWidth: editMode ? "1200px" : "1100px"
+              minWidth: editMode ? "1300px" : "1200px"
             }}>
               <thead>
                 <tr style={{ background: "#f8f9fa", position: "sticky", top: 0, zIndex: 10 }}>
@@ -637,6 +683,68 @@ const Historial = ({ user }) => {
                               style={{ marginRight: "8px" }}
                             />
                             {marca}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </th>
+
+                  {/* Registra Column with Filter */}
+                  <th style={{ 
+                    padding: "12px", 
+                    textAlign: "left", 
+                    borderBottom: "1px solid #ddd",
+                    fontWeight: "bold",
+                    position: "relative",
+                    background: "#f8f9fa"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span>Registra</span>
+                      <button
+                        onClick={() => toggleFilter('registra')}
+                        style={{
+                          background: filters.registra.active ? "#007bff" : "transparent",
+                          color: filters.registra.active ? "white" : "#666",
+                          border: "1px solid #ccc",
+                          borderRadius: "4px",
+                          padding: "2px 6px",
+                          cursor: "pointer",
+                          fontSize: "10px"
+                        }}
+                      >
+                        {showFilter.registra ? "▲" : "▼"}
+                      </button>
+                    </div>
+                    {showFilter.registra && (
+                      <div style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        background: "white",
+                        border: "1px solid #ccc",
+                        borderRadius: "6px",
+                        padding: "15px",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                        zIndex: 1000,
+                        marginTop: "5px",
+                        maxHeight: "200px",
+                        overflowY: "auto",
+                        minWidth: "200px"
+                      }}>
+                        {getUniqueValues('registra').map(registra => (
+                          <label key={registra} style={{ display: "block", marginBottom: "8px", fontSize: "12px" }}>
+                            <input
+                              type="checkbox"
+                              checked={filters.registra.selected.includes(registra)}
+                              onChange={(e) => {
+                                const newSelected = e.target.checked
+                                  ? [...filters.registra.selected, registra]
+                                  : filters.registra.selected.filter(item => item !== registra);
+                                updateRegistraFilter(newSelected);
+                              }}
+                              style={{ marginRight: "8px" }}
+                            />
+                            {registra}
                           </label>
                         ))}
                       </div>
@@ -846,6 +954,18 @@ const Historial = ({ user }) => {
                             {venta.store.name || venta.store}
                           </div>
                         </td>
+                        <td style={{ padding: "12px" }}>
+                          <div style={{ 
+                            fontWeight: "bold",
+                            color: "#495057",
+                            fontSize: "14px"
+                          }}>
+                            {typeof venta.user === 'object' && venta.user !== null 
+                              ? venta.user.name || venta.user.username || 'No especificado'
+                              : 'No especificado'
+                            }
+                          </div>
+                        </td>
                         <td style={{ padding: "12px", textAlign: "right" }}>
                           <div style={{ 
                             fontSize: "14px", 
@@ -982,7 +1102,7 @@ const Historial = ({ user }) => {
                       {/* Expanded Payment Methods Details */}
                       {expandedPagos[venta._id] && isMultiplePayments && (
                         <tr>
-                          <td colSpan={editMode ? "10" : "9"} style={{ padding: "0" }}>
+                          <td colSpan={editMode ? "11" : "10"} style={{ padding: "0" }}>
                             <div style={{ 
                               background: "#e7f3ff", 
                               padding: "15px",
@@ -1171,6 +1291,12 @@ const Historial = ({ user }) => {
                   <strong>Tienda:</strong> {deleteConfirm.store.name || deleteConfirm.store}
                 </div>
                 <div style={{ marginBottom: "8px" }}>
+                  <strong>Registrado por:</strong> {typeof deleteConfirm.user === 'object' && deleteConfirm.user !== null 
+                    ? deleteConfirm.user.name || deleteConfirm.user.username || 'No especificado'
+                    : 'No especificado'
+                  }
+                </div>
+                <div style={{ marginBottom: "8px" }}>
                   <strong>Monto:</strong> {formatCurrency(deleteConfirm.amount)}
                 </div>
                 <div style={{ marginBottom: "8px" }}>
@@ -1257,7 +1383,7 @@ const Historial = ({ user }) => {
             textAlign: "center"
           }}>
             <h3 style={{ margin: "0 0 10px 0", color: "#333", fontSize: "16px" }}>
-              Total Marca
+              Total Correspondiente a Marcas
             </h3>
             <div style={{ fontSize: "24px", fontWeight: "bold", color: "#0066cc" }}>
               {formatCurrency(filteredVentas.reduce((total, venta) => total + calculateDineroMarca(venta), 0))}

@@ -10,6 +10,7 @@ import Historial from "./pages/Historial.jsx";
 import Inventario from "./pages/Inventario.jsx";
 import CrearTienda from "./pages/CrearTienda.jsx";
 import TiendaProfile from "./pages/TiendaProfile.jsx"; // Add this import
+import Salida from "./pages/Salida.jsx";
 
 // Components
 import TopBar from "./components/TopBar.jsx";
@@ -48,6 +49,11 @@ function App() {
               <Route
                 path="/registroEntrada"
                 element={<Entrada user={user} />}
+              />
+
+              <Route
+                path="/salidas"
+                element={<Salida user={user} />}
               />
 
               <Route
