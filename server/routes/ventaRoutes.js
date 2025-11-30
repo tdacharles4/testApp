@@ -5,7 +5,7 @@ import requireAuth from "../middleware/requireAuth.js";
 
 const router = express.Router();
 
-// Helper function to generate sale ID (make sure this exists)
+// Generate sale ID
 const generateSaleId = async () => {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
@@ -30,7 +30,7 @@ const generateSaleId = async () => {
   return `${year}${month}${sequenceNumber.toString().padStart(4, '0')}`;
 };
 
-// EXISTING ROUTE - Get all sales
+// Get all sales
 router.get("/", async (req, res) => {
   try {
     const ventas = await Venta.find().populate("user", "name username email");
@@ -96,6 +96,26 @@ router.get("/stock/:storeTag", async (req, res) => {
   }
 });
 
+// Handling date filtering
+router.get("/", async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    let query = {};
+    
+    if (startDate && endDate) {
+      query.date = {
+        $gte: startDate,
+        $lte: endDate
+      };
+    }
+    
+    const ventas = await Venta.find(query).populate('user', 'name username');
+    res.json(ventas);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Update stock for a product (requires authentication)
 router.put("/stock/update", requireAuth, async (req, res) => {
   try {
@@ -136,7 +156,7 @@ router.put("/stock/update", requireAuth, async (req, res) => {
   }
 });
 
-// EXISTING ROUTE - Create new sale (UPDATED WITH STOCK REDUCTION)
+// Create new sale
 router.post("/crear", requireAuth, async (req, res) => {
   try {
     const { 
@@ -225,7 +245,7 @@ router.post("/crear", requireAuth, async (req, res) => {
   }
 });
 
-// EXISTING ROUTE - Delete sale
+// Delete sale
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const venta = await Venta.findById(req.params.id);
