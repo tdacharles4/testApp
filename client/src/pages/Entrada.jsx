@@ -402,7 +402,7 @@ export default function Entrada() {
             fontWeight: "bold",
             color: "#333"
           }}>
-            Seleccionar Tienda *
+            Seleccionar Marca *
           </label>
           <select
             style={{
@@ -416,7 +416,7 @@ export default function Entrada() {
             value={selectedStore}
             onChange={(e) => setSelectedStore(e.target.value)}
           >
-            <option value="">Seleccionar tienda</option>
+            <option value="">Seleccionar marca</option>
             {stores.map((store) => (
               <option key={store.tag} value={store.tag}>
                 {store.name} ({store.tag})

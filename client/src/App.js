@@ -11,6 +11,7 @@ import Inventario from "./pages/Inventario.jsx";
 import CrearTienda from "./pages/CrearTienda.jsx";
 import TiendaProfile from "./pages/TiendaProfile.jsx"; // Add this import
 import Salida from "./pages/Salida.jsx";
+import Marcas from "./pages/Marcas.jsx";
 
 // Components
 import TopBar from "./components/TopBar.jsx";
@@ -59,6 +60,11 @@ function App() {
               <Route
                 path="/dashboard"
                 element={<Dashboard user={user} />}
+              />
+
+              <Route
+                path="/marcas"
+                element={<Marcas user={user} />}
               />
 
               <Route

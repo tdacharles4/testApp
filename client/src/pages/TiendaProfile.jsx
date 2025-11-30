@@ -420,7 +420,7 @@ const TiendaProfile = ({ user }) => {
             borderRadius: "4px"
           }}
         >
-          ← Volver al Inventario
+          ← Regresar
         </button>
 
         {/* Store Information */}
