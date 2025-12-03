@@ -30,16 +30,6 @@ const generateSaleId = async () => {
   return `${year}${month}${sequenceNumber.toString().padStart(4, '0')}`;
 };
 
-// Get all sales
-router.get("/", async (req, res) => {
-  try {
-    const ventas = await Venta.find().populate("user", "name username email");
-    res.json(ventas);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
 // NEW ROUTES FOR STOCK MANAGEMENT
 
 // Get current stock for a specific product in a store
@@ -96,22 +86,84 @@ router.get("/stock/:storeTag", async (req, res) => {
   }
 });
 
-// Handling date filtering
+// Default monthly date filtering (Required for dashboard)
 router.get("/", async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    let query = {};
+    
+    console.log("Received dates:", { startDate, endDate });
+    
+    // If no dates provided, default to current month
+    let start = new Date();
+    let end = new Date();
     
     if (startDate && endDate) {
-      query.date = {
-        $gte: startDate,
-        $lte: endDate
-      };
+      // Parse YYYY-MM-DD dates
+      start = new Date(startDate);
+      end = new Date(endDate);
+    } else {
+      // Default to current month
+      start = new Date(start.getFullYear(), start.getMonth(), 1);
+      end = new Date(end.getFullYear(), end.getMonth() + 1, 0);
     }
     
-    const ventas = await Venta.find(query).populate('user', 'name username');
-    res.json(ventas);
+    // Set end date to end of day
+    end.setHours(23, 59, 59, 999);
+    
+    console.log("Filtering between:", start, "and", end);
+    
+    // Get all sales and filter manually
+    const allVentas = await Venta.find().populate('user', 'name username');
+    
+    const filteredVentas = allVentas.filter(venta => {
+      // Parse the es-MX string date from database
+      const [day, month, year] = venta.date.split('/').map(Number);
+      const ventaDate = new Date(year, month - 1, day);
+      
+      return ventaDate >= start && ventaDate <= end;
+    });
+    
+    console.log("Found", filteredVentas.length, "sales out of", allVentas.length, "total");
+    res.json(filteredVentas);
   } catch (err) {
+    console.error("Error in GET /ventas:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all sales (Required for Historial de Ventas)
+router.get("/historial", async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    console.log("HISTORIAL API - Received dates:", { startDate, endDate });
+    
+    let allVentas = await Venta.find().populate('user', 'name username');
+    
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      
+      console.log("HISTORIAL API - Filtering between:", start, "and", end);
+      
+      allVentas = allVentas.filter(venta => {
+        try {
+          const [day, month, year] = venta.date.split('/').map(Number);
+          const ventaDate = new Date(year, month - 1, day);
+          
+          return ventaDate >= start && ventaDate <= end;
+        } catch (error) {
+          console.error("Error parsing date for venta:", venta._id, venta.date);
+          return false;
+        }
+      });
+    }
+    
+    console.log("HISTORIAL API - Returning", allVentas.length, "sales");
+    res.json(allVentas);
+  } catch (err) {
+    console.error("Error in GET /ventas/historial:", err);
     res.status(500).json({ error: err.message });
   }
 });
