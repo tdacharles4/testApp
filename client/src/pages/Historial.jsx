@@ -37,7 +37,7 @@ const Historial = ({ user }) => {
 
   const fetchVentas = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/ventas");
+      const response = await fetch("http://localhost:5000/api/ventas/historial");
       const data = await response.json();
       setVentas(data);
       setFilteredVentas(data);

@@ -31,20 +31,28 @@ export default function Dashboard({ user }) {
   const getDateRange = () => {
     const now = new Date();
     
+    const formatForAPI = (date) => {
+      // Format as YYYY-MM-DD for API consistency
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     switch (dateRange) {
       case "mensual":
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         return {
-          start: startOfMonth.toISOString().split('T')[0],
-          end: endOfMonth.toISOString().split('T')[0]
+          start: formatForAPI(startOfMonth),
+          end: formatForAPI(endOfMonth)
         };
       case "anual":
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         const endOfYear = new Date(now.getFullYear(), 11, 31);
         return {
-          start: startOfYear.toISOString().split('T')[0],
-          end: endOfYear.toISOString().split('T')[0]
+          start: formatForAPI(startOfYear),
+          end: formatForAPI(endOfYear)
         };
       case "especifico":
         return {

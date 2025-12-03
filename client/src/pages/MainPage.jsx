@@ -45,8 +45,8 @@ export default function MainPage({user}) {
               Crear Tienda
             </button>
 
-            <button className="main-btn" onClick={() => navigate("/crearPerfilUsuario")}>
-              Crear Perfil de Usuario
+            <button className="main-btn" onClick={() => navigate("/crearUsuario")}>
+              Crear Nuevo Usuario
             </button>
           </>
         )}

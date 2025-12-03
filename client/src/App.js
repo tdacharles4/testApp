@@ -12,6 +12,7 @@ import CrearTienda from "./pages/CrearTienda.jsx";
 import TiendaProfile from "./pages/TiendaProfile.jsx"; // Add this import
 import Salida from "./pages/Salida.jsx";
 import Marcas from "./pages/Marcas.jsx";
+import CrearUsuario from "./pages/CrearUsuario.jsx";
 
 // Components
 import TopBar from "./components/TopBar.jsx";
@@ -86,13 +87,21 @@ function App() {
                 }
               />
 
-              {/* Add the new store profile route */}
+              <Route
+                path="/crearUsuario"
+                element={
+                  <RequireAdmin user={user}>
+                    <CrearUsuario user={user} />
+                  </RequireAdmin>
+                }
+              />
+
               <Route
                 path="/:storeName"
                 element={<TiendaProfile user={user} />}
               />
-
             </Routes>
+            
           </div>
         </div>
       </>
