@@ -12,9 +12,13 @@ export default async function requireAuth(req, res, next) {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // attach user to request
-    req.user = await User.findById(decoded.id).select("-password");
+    const user = await User.findById(decoded.id).select("-password");
 
+    if (!user) {
+      return res.status(401).json({ error: "Usuario no existe" });
+    }
+
+    req.user = user; // ✅ guaranteed non-null
     next();
   } catch (err) {
     return res.status(401).json({ error: "Token inválido" });

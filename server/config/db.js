@@ -4,8 +4,23 @@ import User from "../models/User.js";
 
 const connectDB = async () => {
   try {
-    await mongoose.connect("mongodb://127.0.0.1:27017/testApp"); // o tu URI
+    await mongoose.connect("mongodb://127.0.0.1:27017/testApp");
     console.log("MongoDB Connected");
+
+    // Optional: Clean up invalid admin user first
+    try {
+      const invalidAdmin = await User.findOne({ 
+        username: "admin", 
+        name: { $exists: false } 
+      });
+      
+      if (invalidAdmin) {
+        await User.deleteOne({ _id: invalidAdmin._id });
+        console.log("Removed invalid admin user (missing name)");
+      }
+    } catch (cleanupError) {
+      console.log("Cleanup not needed or failed:", cleanupError.message);
+    }
 
     // Create admin only if not exists
     const exists = await User.findOne({ username: "admin" });
@@ -14,9 +29,17 @@ const connectDB = async () => {
       const hashed = await bcrypt.hash("admin", 10);
       await User.create({
         username: "admin",
-        password: hashed
+        password: hashed,
+        name: "Administrador", // REQUIRED FIELD
+        role: "admin",
+        permissions: {
+          administrador: true,
+          tienda: true
+        }
       });
-      console.log("Admin user created");
+      console.log("Admin user created with username: 'admin', password: 'admin'");
+    } else {
+      console.log("Admin user already exists");
     }
 
   } catch (error) {

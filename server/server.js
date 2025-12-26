@@ -7,6 +7,7 @@ import tiendaRoutes from "./routes/tiendaRoutes.js";
 import ventaRoutes from "./routes/ventaRoutes.js";
 import salidaRoutes from "./routes/salidaRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import corteRoutes from "./routes/corteRoutes.js";
 
 
 import path from "path";
@@ -34,6 +35,7 @@ app.use("/api/ventas", ventaRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/salidas", salidaRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/cortes', corteRoutes);
 
 app.listen(5000, () => {
   console.log("Server running on http://localhost:5000");
