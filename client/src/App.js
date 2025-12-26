@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Pages
 import MainPage from "./pages/MainPage.jsx";
@@ -9,10 +9,11 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Historial from "./pages/Historial.jsx";
 import Inventario from "./pages/Inventario.jsx";
 import CrearTienda from "./pages/CrearTienda.jsx";
-import TiendaProfile from "./pages/TiendaProfile.jsx"; // Add this import
+import TiendaProfile from "./pages/TiendaProfile.jsx";
 import Salida from "./pages/Salida.jsx";
 import Marcas from "./pages/Marcas.jsx";
 import CrearUsuario from "./pages/CrearUsuario.jsx";
+import Corte from "./pages/Corte.jsx";
 
 // Components
 import TopBar from "./components/TopBar.jsx";
@@ -22,6 +23,46 @@ import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check for existing user session on initial load
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error("Error parsing stored user:", error);
+        localStorage.removeItem("user");
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Update localStorage when user changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("user");
+    }
+  }, [user]);
+
+  // Show loading while checking auth state
+  if (isLoading) {
+    return (
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        fontSize: "18px",
+        color: "#666"
+      }}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>
@@ -40,65 +81,119 @@ function App() {
           {/* MAX WIDTH FOR ALL PAGES */}
           <div style={{ width: "100%"}}>
             <Routes>
-
-              <Route path="/" element={<MainPage user={user} />} />
-
-              <Route
-                path="/login"
-                element={<Login user={user} setUser={setUser} />}
+              {/* Default route: redirect to login or main based on auth state */}
+              <Route 
+                path="/" 
+                element={
+                  user ? <Navigate to="/main" replace /> : <Navigate to="/login" replace />
+                } 
               />
 
+              {/* Login route */}
+              <Route
+                path="/login"
+                element={
+                  user ? (
+                    <Navigate to="/main" replace />
+                  ) : (
+                    <Login user={user} setUser={setUser} />
+                  )
+                }
+              />
+
+              {/* Main page route - protected */}
+              <Route
+                path="/main"
+                element={
+                  user ? (
+                    <MainPage user={user} />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+
+              {/* Protected routes */}
               <Route
                 path="/registroEntrada"
-                element={<Entrada user={user} />}
+                element={
+                  user ? <Entrada user={user} /> : <Navigate to="/login" replace />
+                }
               />
 
               <Route
                 path="/salidas"
-                element={<Salida user={user} />}
+                element={
+                  user ? <Salida user={user} /> : <Navigate to="/login" replace />
+                }
+              />
+
+              <Route
+                path="/corte"
+                element={
+                  user ? <Corte user={user} /> : <Navigate to="/login" replace />
+                }
               />
 
               <Route
                 path="/dashboard"
-                element={<Dashboard user={user} />}
+                element={
+                  user ? <Dashboard user={user} /> : <Navigate to="/login" replace />
+                }
               />
 
               <Route
                 path="/marcas"
-                element={<Marcas user={user} />}
+                element={
+                  user ? <Marcas user={user} /> : <Navigate to="/login" replace />
+                }
               />
 
               <Route
                 path="/historial"
-                element={<Historial user={user} />}
+                element={
+                  user ? <Historial user={user} /> : <Navigate to="/login" replace />
+                }
               />
 
               <Route
                 path="/inventario"
-                element={<Inventario user={user} />}
+                element={
+                  user ? <Inventario user={user} /> : <Navigate to="/login" replace />
+                }
               />
 
               <Route
                 path="/crearTienda"
                 element={
-                  <RequireAdmin user={user}>
-                    <CrearTienda user={user} />
-                  </RequireAdmin>
+                  user ? (
+                    <RequireAdmin user={user}>
+                      <CrearTienda user={user} />
+                    </RequireAdmin>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
                 }
               />
 
               <Route
                 path="/crearUsuario"
                 element={
-                  <RequireAdmin user={user}>
-                    <CrearUsuario user={user} />
-                  </RequireAdmin>
+                  user ? (
+                    <RequireAdmin user={user}>
+                      <CrearUsuario user={user} />
+                    </RequireAdmin>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
                 }
               />
 
               <Route
                 path="/:storeName"
-                element={<TiendaProfile user={user} />}
+                element={
+                  user ? <TiendaProfile user={user} /> : <Navigate to="/login" replace />
+                }
               />
             </Routes>
             

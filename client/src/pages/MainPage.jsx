@@ -23,8 +23,12 @@ export default function MainPage({user}) {
           Registro de Salidas
         </button>
 
-        <button className="main-btn" onClick={() => navigate("/dashboard")}>
-          Dashboard
+        <button
+          className="main-btn"
+          disabled={!user}
+          onClick={() => user && navigate("/corte")}
+        >
+          Generar Corte Mensual
         </button>
 
         <button className="main-btn" onClick={() => navigate("/marcas")}>
@@ -37,6 +41,10 @@ export default function MainPage({user}) {
 
         <button className="main-btn" onClick={() => navigate("/inventario")}>
           Inventario
+        </button>
+
+        <button className="main-btn" onClick={() => navigate("/dashboard")}>
+          Dashboard
         </button>
 
         {user?.role === "admin" && (

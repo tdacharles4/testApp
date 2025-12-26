@@ -4,13 +4,12 @@ import axios from 'axios';
 
 const CrearUsuario = ({ user }) => {
   const navigate = useNavigate();
-  
-  // Form state
+
   const [formData, setFormData] = useState({
     username: '',
     password: '',
     name: '',
-    role: 'user', // Default to 'user'
+    role: 'user',
     permissions: {
       administrador: false,
       tienda: false
@@ -20,17 +19,23 @@ const CrearUsuario = ({ user }) => {
     tiendaName: ''
   });
 
-  // List of tiendas/marcas
   const [tiendas, setTiendas] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [editingUser, setEditingUser] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
 
-  // Fetch tiendas/marcas on component mount
+  // Fetch tiendas
   useEffect(() => {
     const fetchTiendas = async () => {
       try {
-        // Assuming your endpoint is /api/tiendas
         const response = await axios.get('http://localhost:5000/api/tiendas');
         setTiendas(response.data);
       } catch (err) {
@@ -42,7 +47,30 @@ const CrearUsuario = ({ user }) => {
     fetchTiendas();
   }, []);
 
-  // Handle input changes
+  // Fetch users
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/users', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setUsers(response.data);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError('Error al cargar los usuarios');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
@@ -61,7 +89,6 @@ const CrearUsuario = ({ user }) => {
         [name]: checked
       }));
     } else if (type === 'radio') {
-      // Handle radio button for role
       setFormData(prev => ({
         ...prev,
         [name]: value
@@ -74,7 +101,6 @@ const CrearUsuario = ({ user }) => {
     }
   };
 
-  // Handle tienda/marca selection
   const handleTiendaChange = (e) => {
     const selectedTiendaId = e.target.value;
     const selectedTienda = tiendas.find(tienda => tienda._id === selectedTiendaId);
@@ -86,7 +112,6 @@ const CrearUsuario = ({ user }) => {
     }));
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -94,7 +119,6 @@ const CrearUsuario = ({ user }) => {
     setLoading(true);
 
     try {
-      // Validation
       if (!formData.username || !formData.password || !formData.name) {
         throw new Error('Por favor completa todos los campos obligatorios');
       }
@@ -103,7 +127,6 @@ const CrearUsuario = ({ user }) => {
         throw new Error('Debe seleccionar una tienda/marca');
       }
 
-      // Prepare data for API
       const userData = {
         username: formData.username,
         password: formData.password,
@@ -112,13 +135,11 @@ const CrearUsuario = ({ user }) => {
         permissions: formData.permissions
       };
 
-      // Add tienda if selected
       if (formData.ligarTienda && formData.tiendaId) {
         userData.tiendaId = formData.tiendaId;
         userData.tiendaName = formData.tiendaName;
       }
 
-      // Send request with auth token
       const token = localStorage.getItem('token');
       const response = await axios.post('http://localhost:5000/api/users', userData, {
         headers: {
@@ -142,7 +163,9 @@ const CrearUsuario = ({ user }) => {
           tiendaName: ''
         });
         
-        // Reset after 3 seconds
+        // Refresh the users list
+        fetchUsers();
+        
         setTimeout(() => {
           setSuccess('');
         }, 3000);
@@ -154,11 +177,102 @@ const CrearUsuario = ({ user }) => {
     }
   };
 
-  // Container styles
+  // Edit user functions
+  const handleEditClick = (user) => {
+    setEditingUser(user);
+    setEditFormData({
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!editFormData.newPassword) {
+      setError('Por favor ingresa una nueva contraseña');
+      return;
+    }
+
+    if (editFormData.newPassword !== editFormData.confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.put(`http://localhost:5000/api/users/${editingUser._id}`, {
+        password: editFormData.newPassword
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      setSuccess('Contraseña actualizada exitosamente');
+      setShowEditModal(false);
+      setEditingUser(null);
+      setEditFormData({
+        newPassword: '',
+        confirmPassword: ''
+      });
+
+      setTimeout(() => {
+        setSuccess('');
+      }, 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Error al actualizar contraseña');
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`http://localhost:5000/api/users/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      setSuccess('Usuario eliminado exitosamente');
+      // Refresh the users list
+      fetchUsers();
+
+      setTimeout(() => {
+        setSuccess('');
+      }, 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Error al eliminar usuario');
+    }
+  };
+
   const containerStyles = {
-    maxWidth: '800px',
+    display: 'flex',
+    gap: '2rem',
+    maxWidth: '1400px',
     margin: '0 auto',
     padding: '2rem',
+  };
+
+  const leftPanelStyles = {
+    flex: '1',
+    minWidth: '400px',
+  };
+
+  const rightPanelStyles = {
+    flex: '1',
+    minWidth: '400px',
   };
 
   const cardStyles = {
@@ -166,6 +280,7 @@ const CrearUsuario = ({ user }) => {
     borderRadius: '12px',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
     padding: '2.5rem',
+    height: '100%',
   };
 
   const headingStyles = {
@@ -304,229 +419,468 @@ const CrearUsuario = ({ user }) => {
     border: '1px solid #c3e6cb',
   };
 
+  // Table styles
+  const tableContainerStyles = {
+    marginTop: '1rem',
+    overflowX: 'auto',
+  };
+
+  const tableStyles = {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.95rem',
+  };
+
+  const thStyles = {
+    backgroundColor: '#f8f9fa',
+    padding: '0.75rem 1rem',
+    textAlign: 'left',
+    borderBottom: '2px solid #dee2e6',
+    color: '#555',
+    fontWeight: '600',
+  };
+
+  const tdStyles = {
+    padding: '0.75rem 1rem',
+    borderBottom: '1px solid #dee2e6',
+    verticalAlign: 'middle',
+  };
+
+  const actionButtonStyles = {
+    padding: '0.4rem 0.8rem',
+    border: 'none',
+    borderRadius: '4px',
+    fontSize: '0.85rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    marginRight: '0.5rem',
+  };
+
+  const editButtonStyles = {
+    ...actionButtonStyles,
+    backgroundColor: '#17a2b8',
+    color: 'white',
+  };
+
+  const deleteButtonStyles = {
+    ...actionButtonStyles,
+    backgroundColor: '#dc3545',
+    color: 'white',
+  };
+
+  const loadingStyles = {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '2rem',
+    color: '#666',
+  };
+
+  // Modal styles
+  const modalOverlayStyles = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  };
+
+  const modalContentStyles = {
+    background: 'white',
+    borderRadius: '12px',
+    padding: '2rem',
+    width: '400px',
+    maxWidth: '90%',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+  };
+
+  const modalHeaderStyles = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1.5rem',
+  };
+
+  const modalTitleStyles = {
+    fontSize: '1.3rem',
+    color: '#333',
+    margin: 0,
+  };
+
+  const closeButtonStyles = {
+    background: 'none',
+    border: 'none',
+    fontSize: '1.5rem',
+    cursor: 'pointer',
+    color: '#666',
+  };
+
+  const modalActionsStyles = {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '1rem',
+    marginTop: '2rem',
+  };
+
   return (
     <div style={containerStyles}>
-      <div style={cardStyles}>
-        <h1 style={headingStyles}>Crear Nuevo Usuario</h1>
-        
-        {error && <div style={alertErrorStyles}>{error}</div>}
-        {success && <div style={alertSuccessStyles}>{success}</div>}
-        
-        <form onSubmit={handleSubmit}>
-          {/* Basic Info */}
-          <div style={sectionStyles}>
-            <h3 style={sectionTitleStyles}>Información Básica</h3>
-            
-            <div style={formGroupStyles}>
-              <label htmlFor="username" style={labelStyles}>
-                Nombre de Usuario *
-              </label>
-              <input
-                type="text"
-                id="username"
-                name="username"
-                value={formData.username}
-                onChange={handleInputChange}
-                required
-                placeholder="juan.perez"
-                style={inputStyles}
-                onFocus={(e) => e.target.style = { ...inputStyles, ...inputFocusStyles }}
-                onBlur={(e) => e.target.style = inputStyles}
-              />
-            </div>
-
-            <div style={formGroupStyles}>
-              <label htmlFor="password" style={labelStyles}>
-                Contraseña *
-              </label>
-              <input
-                type="text"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-                minLength="6"
-                style={inputStyles}
-                onFocus={(e) => e.target.style = { ...inputStyles, ...inputFocusStyles }}
-                onBlur={(e) => e.target.style = inputStyles}
-              />
-            </div>
-
-            <div style={formGroupStyles}>
-              <label htmlFor="name" style={labelStyles}>
-                Nombre Completo *
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                placeholder="Juan Pérez"
-                style={inputStyles}
-                onFocus={(e) => e.target.style = { ...inputStyles, ...inputFocusStyles }}
-                onBlur={(e) => e.target.style = inputStyles}
-              />
-            </div>
-
-            {/* Radio buttons for Role */}
-            <div style={formGroupStyles}>
-              <label style={labelStyles}>Rol *</label>
-              <div style={radioGroupStyles}>
-                <label style={radioLabelStyles}>
-                  <input
-                    type="radio"
-                    name="role"
-                    value="user"
-                    checked={formData.role === 'user'}
-                    onChange={handleInputChange}
-                    style={radioInputStyles}
-                  />
-                  <span>Tienda</span>
+      {/* Left Panel - Create User Form */}
+      <div style={leftPanelStyles}>
+        <div style={cardStyles}>
+          <h1 style={headingStyles}>Crear Nuevo Usuario</h1>
+          
+          {error && <div style={alertErrorStyles}>{error}</div>}
+          {success && <div style={alertSuccessStyles}>{success}</div>}
+          
+          <form onSubmit={handleSubmit}>
+            <div style={sectionStyles}>
+              <h3 style={sectionTitleStyles}>Información Básica</h3>
+              
+              <div style={formGroupStyles}>
+                <label htmlFor="username" style={labelStyles}>
+                  Nombre de Usuario *
                 </label>
-                
-                <label style={radioLabelStyles}>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="juan.perez"
+                  style={inputStyles}
+                  onFocus={(e) => e.target.style = { ...inputStyles, ...inputFocusStyles }}
+                  onBlur={(e) => e.target.style = inputStyles}
+                />
+              </div>
+
+              <div style={formGroupStyles}>
+                <label htmlFor="password" style={labelStyles}>
+                  Contraseña *
+                </label>
+                <input
+                  type="text"
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                  minLength="6"
+                  style={inputStyles}
+                  onFocus={(e) => e.target.style = { ...inputStyles, ...inputFocusStyles }}
+                  onBlur={(e) => e.target.style = inputStyles}
+                />
+              </div>
+
+              <div style={formGroupStyles}>
+                <label htmlFor="name" style={labelStyles}>
+                  Nombre Completo *
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Juan Pérez"
+                  style={inputStyles}
+                  onFocus={(e) => e.target.style = { ...inputStyles, ...inputFocusStyles }}
+                  onBlur={(e) => e.target.style = inputStyles}
+                />
+              </div>
+
+              {/* Radio buttons for Role */}
+              <div style={formGroupStyles}>
+                <label style={labelStyles}>Rol *</label>
+                <div style={radioGroupStyles}>
+                  <label style={radioLabelStyles}>
+                    <input
+                      type="radio"
+                      name="role"
+                      value="user"
+                      checked={formData.role === 'user'}
+                      onChange={handleInputChange}
+                      style={radioInputStyles}
+                    />
+                    <span>Tienda</span>
+                  </label>
+                  
+                  <label style={radioLabelStyles}>
+                    <input
+                      type="radio"
+                      name="role"
+                      value="admin"
+                      checked={formData.role === 'admin'}
+                      onChange={handleInputChange}
+                      style={radioInputStyles}
+                    />
+                    <span>Administrador</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Permissions */}
+            <div style={sectionStyles}>
+              <h3 style={sectionTitleStyles}>Permisos Específicos</h3>
+              
+              <div style={checkboxGroupStyles}>
+                <label style={checkboxLabelStyles}>
                   <input
-                    type="radio"
-                    name="role"
-                    value="admin"
-                    checked={formData.role === 'admin'}
+                    type="checkbox"
+                    name="permissions.administrador"
+                    checked={formData.permissions.administrador}
                     onChange={handleInputChange}
-                    style={radioInputStyles}
+                    style={checkboxInputStyles}
                   />
                   <span>Administrador</span>
                 </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Permissions */}
-          <div style={sectionStyles}>
-            <h3 style={sectionTitleStyles}>Permisos Específicos</h3>
-            
-            <div style={checkboxGroupStyles}>
-              <label style={checkboxLabelStyles}>
-                <input
-                  type="checkbox"
-                  name="permissions.administrador"
-                  checked={formData.permissions.administrador}
-                  onChange={handleInputChange}
-                  style={checkboxInputStyles}
-                />
-                <span>Administrador</span>
-              </label>
-              
-              <label style={checkboxLabelStyles}>
-                <input
-                  type="checkbox"
-                  name="permissions.tienda"
-                  checked={formData.permissions.tienda}
-                  onChange={handleInputChange}
-                  style={checkboxInputStyles}
-                />
-                <span>Tienda</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Tienda/Marca Link */}
-          <div style={sectionStyles}>
-            <h3 style={sectionTitleStyles}>Vincular a Marca</h3>
-            
-            <div style={checkboxGroupStyles}>
-              <label style={checkboxLabelStyles}>
-                <input
-                  type="checkbox"
-                  name="ligarTienda"
-                  checked={formData.ligarTienda}
-                  onChange={handleInputChange}
-                  style={checkboxInputStyles}
-                />
-                <span>Ligar usuario a una marca</span>
-              </label>
-            </div>
-
-            {formData.ligarTienda && (
-              <div style={formGroupStyles}>
-                <label htmlFor="tienda" style={labelStyles}>
-                  Seleccionar Marca
+                
+                <label style={checkboxLabelStyles}>
+                  <input
+                    type="checkbox"
+                    name="permissions.tienda"
+                    checked={formData.permissions.tienda}
+                    onChange={handleInputChange}
+                    style={checkboxInputStyles}
+                  />
+                  <span>Tienda</span>
                 </label>
-                <select
-                  id="tienda"
-                  value={formData.tiendaId}
-                  onChange={handleTiendaChange}
-                  required={formData.ligarTienda}
-                  style={inputStyles}
-                >
-                  <option value="">-- Seleccionar Marca --</option>
-                  {tiendas.map((tienda) => (
-                    <option key={tienda._id} value={tienda._id}>
-                      {tienda.tag} - {tienda.name}
-                    </option>
-                  ))}
-                </select>
-                {formData.tiendaName && (
-                  <div style={{ marginTop: '0.5rem', color: '#666', fontSize: '0.9rem' }}>
-                    Seleccionado: {formData.tiendaName}
-                  </div>
-                )}
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Buttons */}
-          <div style={formActionsStyles}>
-            <button
-              type="button"
-              style={{
-                ...secondaryButtonStyles,
-                opacity: loading ? 0.6 : 1,
-                cursor: loading ? 'not-allowed' : 'pointer',
-              }}
-              onClick={() => navigate('/')}
-              disabled={loading}
-              onMouseEnter={(e) => {
-                if (!loading) {
-                  e.target.style.backgroundColor = '#545b62';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!loading) {
-                  e.target.style.backgroundColor = '#6c757d';
-                }
-              }}
-            >
-              Cancelar
-            </button>
-            
-            <button
-              type="submit"
-              style={{
-                ...primaryButtonStyles,
-                opacity: loading ? 0.6 : 1,
-                cursor: loading ? 'not-allowed' : 'pointer',
-              }}
-              disabled={loading}
-              onMouseEnter={(e) => {
-                if (!loading) {
-                  e.target.style.backgroundColor = '#0056b3';
-                  e.target.style.transform = 'translateY(-1px)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!loading) {
-                  e.target.style.backgroundColor = '#007bff';
-                  e.target.style.transform = 'translateY(0)';
-                }
-              }}
-            >
-              {loading ? 'Creando...' : 'Crear Usuario'}
-            </button>
-          </div>
-        </form>
+            {/* Tienda/Marca Link */}
+            <div style={sectionStyles}>
+              <h3 style={sectionTitleStyles}>Vincular a Marca</h3>
+              
+              <div style={checkboxGroupStyles}>
+                <label style={checkboxLabelStyles}>
+                  <input
+                    type="checkbox"
+                    name="ligarTienda"
+                    checked={formData.ligarTienda}
+                    onChange={handleInputChange}
+                    style={checkboxInputStyles}
+                  />
+                  <span>Ligar usuario a una marca</span>
+                </label>
+              </div>
+
+              {formData.ligarTienda && (
+                <div style={formGroupStyles}>
+                  <label htmlFor="tienda" style={labelStyles}>
+                    Seleccionar Marca
+                  </label>
+                  <select
+                    id="tienda"
+                    value={formData.tiendaId}
+                    onChange={handleTiendaChange}
+                    required={formData.ligarTienda}
+                    style={inputStyles}
+                  >
+                    <option value="">-- Seleccionar Marca --</option>
+                    {tiendas.map((tienda) => (
+                      <option key={tienda._id} value={tienda._id}>
+                        {tienda.tag} - {tienda.name}
+                      </option>
+                    ))}
+                  </select>
+                  {formData.tiendaName && (
+                    <div style={{ marginTop: '0.5rem', color: '#666', fontSize: '0.9rem' }}>
+                      Seleccionado: {formData.tiendaName}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div style={formActionsStyles}>
+              <button
+                type="button"
+                style={{
+                  ...secondaryButtonStyles,
+                  opacity: loading ? 0.6 : 1,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                }}
+                onClick={() => navigate('/main')}
+                disabled={loading}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.backgroundColor = '#545b62';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.target.style.backgroundColor = '#6c757d';
+                  }
+                }}
+              >
+                Cancelar
+              </button>
+              
+              <button
+                type="submit"
+                style={{
+                  ...primaryButtonStyles,
+                  opacity: loading ? 0.6 : 1,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                }}
+                disabled={loading}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.target.style.backgroundColor = '#0056b3';
+                    e.target.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.target.style.backgroundColor = '#007bff';
+                    e.target.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {loading ? 'Creando...' : 'Crear Usuario'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
+
+      {/* Right Panel - Users Table */}
+      <div style={rightPanelStyles}>
+        <div style={cardStyles}>
+          <h1 style={headingStyles}>Usuarios Existentes</h1>
+          
+          {loadingUsers ? (
+            <div style={loadingStyles}>Cargando usuarios...</div>
+          ) : (
+            <div style={tableContainerStyles}>
+              <table style={tableStyles}>
+                <thead>
+                  <tr>
+                    <th style={thStyles}>Usuario</th>
+                    <th style={thStyles}>Nombre</th>
+                    <th style={thStyles}>Rol</th>
+                    <th style={thStyles}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((userItem) => (
+                    <tr key={userItem._id}>
+                      <td style={tdStyles}>{userItem.username}</td>
+                      <td style={tdStyles}>{userItem.name}</td>
+                      <td style={tdStyles}>
+                        <span style={{
+                          backgroundColor: userItem.role === 'admin' ? '#17a2b8' : '#28a745',
+                          color: 'white',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '4px',
+                          fontSize: '0.85rem',
+                        }}>
+                          {userItem.role === 'admin' ? 'Administrador' : 'Tienda'}
+                        </span>
+                      </td>
+                      <td style={tdStyles}>
+                        <button
+                          style={editButtonStyles}
+                          onClick={() => handleEditClick(userItem)}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = '#138496'}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = '#17a2b8'}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          style={deleteButtonStyles}
+                          onClick={() => handleDeleteUser(userItem._id)}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = '#c82333'}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = '#dc3545'}
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              {users.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+                  No hay usuarios registrados
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div style={modalOverlayStyles}>
+          <div style={modalContentStyles}>
+            <div style={modalHeaderStyles}>
+              <h2 style={modalTitleStyles}>Editar Usuario: {editingUser.name}</h2>
+              <button
+                style={closeButtonStyles}
+                onClick={() => setShowEditModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={formGroupStyles}>
+              <label htmlFor="newPassword" style={labelStyles}>
+                Nueva Contraseña
+              </label>
+              <input
+                type="password"
+                id="newPassword"
+                name="newPassword"
+                value={editFormData.newPassword}
+                onChange={handleEditInputChange}
+                placeholder="Ingrese nueva contraseña"
+                style={inputStyles}
+              />
+            </div>
+            
+            <div style={formGroupStyles}>
+              <label htmlFor="confirmPassword" style={labelStyles}>
+                Confirmar Contraseña
+              </label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={editFormData.confirmPassword}
+                onChange={handleEditInputChange}
+                placeholder="Confirme la nueva contraseña"
+                style={inputStyles}
+              />
+            </div>
+            
+            <div style={modalActionsStyles}>
+              <button
+                style={secondaryButtonStyles}
+                onClick={() => setShowEditModal(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                style={primaryButtonStyles}
+                onClick={handleUpdatePassword}
+              >
+                Actualizar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
