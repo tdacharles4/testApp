@@ -2,6 +2,13 @@
   "version": 2,
   "builds": [
     {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    },
+    {
       "src": "server/api/index.js",
       "use": "@vercel/node"
     }
@@ -12,15 +19,8 @@
       "dest": "/server/api/index.js"
     },
     {
-      "src": "/uploads/(.*)",
-      "dest": "/server/api/index.js"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/server/api/index.js"
+      "dest": "/frontend/build/$1"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
