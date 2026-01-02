@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./TopBar.css";
-import logo1 from "../assets/images/SgtTuco.png";
-import logo2 from "../assets/images/WakandoCatalino.png";
+const logo1 = "/images/SgtTuco.png";
+const logo2 = "/images/WakandoCatalino.png";
 
 export default function TopBar({ user, setUser }) {
   const navigate = useNavigate();
