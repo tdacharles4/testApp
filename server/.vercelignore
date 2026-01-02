@@ -1,0 +1,12 @@
+node_modules
+.git
+.gitignore
+*.md
+*.log
+.env
+.env.local
+test/
+coverage/
+uploads/        # Exclude uploads since Vercel can't write here
+.DS_Store
+Thumbs.db
