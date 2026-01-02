@@ -1,0 +1,26 @@
+1. run mongo on any cd
+
+& "C:\Program Files\MongoDB\Server\8.2\bin\mongod.exe" --dbpath "C:\data\db"
+
+2. run backend on cd server
+
+cd server
+npm run dev
+
+3. run frontend on cd client
+
+cd client
+npm start
+
+
+
+4. 
+
+git add .
+git commit -m "Comentario"
+
+Both on cds server, client
+
+git push -u origin main
+
+To send to GitHub
