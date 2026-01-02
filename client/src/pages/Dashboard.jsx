@@ -72,31 +72,40 @@ export default function Dashboard({ user }) {
     applyFilters();
   }, [salesData, filters, showCommissions]);
 
-  const fetchSalesData = async () => {
-    try {
-      setLoading(true);
-      const dateRangeObj = getDateRange();
-      
-      let url = "http://localhost:5000/api/ventas";
-      if (dateRangeObj.start && dateRangeObj.end) {
-        url += `?startDate=${dateRangeObj.start}&endDate=${dateRangeObj.end}`;
-      }
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setSalesData(data);
-      setFilteredSales(data);
-      
-    } catch (error) {
-      console.error("Error fetching sales data:", error);
-    } finally {
-      setLoading(false);
+  // FIX: add Authorization header to fetchSalesData
+
+const fetchSalesData = async () => {
+  try {
+    setLoading(true);
+    const dateRangeObj = getDateRange();
+
+    let url = "http://localhost:5000/api/ventas";
+    if (dateRangeObj.start && dateRangeObj.end) {
+      url += `?startDate=${dateRangeObj.start}&endDate=${dateRangeObj.end}`;
     }
-  };
+
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    setSalesData(data);
+    setFilteredSales(data);
+  } catch (error) {
+    console.error("Error fetching sales data:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Calculate post-comision amount (from Historial.jsx)
   const calculatePostComision = (venta) => {

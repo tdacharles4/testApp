@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 export default function CrearTienda({ user }) {
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   const [storeName, setStoreName] = useState("");
   const [storeTag, setStoreTag] = useState("");
   const [storeDescription, setStoreDescription] = useState("");
@@ -226,7 +227,7 @@ export default function CrearTienda({ user }) {
       const token = localStorage.getItem("token");
 
       await axios.post(
-        "http://localhost:5000/api/tiendas",
+        `${API_URL}/api/tiendas`,
         form,
         {
           headers: {

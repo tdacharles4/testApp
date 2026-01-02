@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 const TiendaProfile = ({ user }) => {
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   const { storeName } = useParams();
   const navigate = useNavigate();
   const [store, setStore] = useState(null);
@@ -43,6 +44,7 @@ const TiendaProfile = ({ user }) => {
   // Edit product state
   const [editProductData, setEditProductData] = useState({
     image: null,
+    existingImageUrl: "",
     name: "",
     nombreProducto: "",
     description: "",
@@ -55,7 +57,7 @@ const TiendaProfile = ({ user }) => {
   useEffect(() => {
     const fetchStoreData = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/tiendas/${storeName}`);
+        const response = await fetch(`${API_URL}/api/tiendas/${storeName}`);
         const data = await response.json();
         setStore(data);
         // Initialize edit form with current store data
@@ -80,18 +82,19 @@ const TiendaProfile = ({ user }) => {
     };
 
     fetchStoreData();
-  }, [storeName]);
+  }, [storeName, API_URL]);
 
   const handleEditProduct = (product) => {
     setEditingProduct(product);
     setEditProductData({
-      image: null, // We'll handle image updates separately
+      image: null,
+      existingImageUrl: product.imageUrl || "",
       name: product.clave || "",
       nombreProducto: product.name || "",
       description: product.description || "",
       price: product.price || "",
       quantity: product.quantity || 0,
-      fechaRecepcionHoy: true, // Default to today for edits
+      fechaRecepcionHoy: true,
       fechaRecepcion: new Date().toISOString().split('T')[0]
     });
   };
@@ -111,7 +114,7 @@ const TiendaProfile = ({ user }) => {
       formData.append("productQuantity", editProductData.quantity.toString());
       formData.append("productFechaRecepcion", editProductData.fechaRecepcion);
 
-      const response = await fetch(`http://localhost:5000/api/tiendas/${store._id}/products/${editingProduct._id}`, {
+      const response = await fetch(`${API_URL}/api/tiendas/${store._id}/products/${editingProduct._id}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
@@ -138,6 +141,7 @@ const TiendaProfile = ({ user }) => {
     setEditingProduct(null);
     setEditProductData({
       image: null,
+      existingImageUrl: "",
       name: "",
       nombreProducto: "",
       description: "",
@@ -150,7 +154,7 @@ const TiendaProfile = ({ user }) => {
 
   const handleDeleteStore = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/tiendas/${store._id}`, {
+      const response = await fetch(`${API_URL}/api/tiendas/${store._id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
@@ -186,7 +190,7 @@ const TiendaProfile = ({ user }) => {
       formData.append("productQuantity", newProduct.quantity.toString());
       formData.append("productFechaRecepcion", newProduct.fechaRecepcion);
 
-      const response = await fetch(`http://localhost:5000/api/tiendas/${store._id}/products`, {
+      const response = await fetch(`${API_URL}/api/tiendas/${store._id}/products`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
@@ -285,7 +289,7 @@ const TiendaProfile = ({ user }) => {
       if (editStoreData.clabe.trim()) formData.append("clabe", editStoreData.clabe.trim());
       if (editStoreData.tarjeta.trim()) formData.append("tarjeta", editStoreData.tarjeta.trim());
 
-      const response = await fetch(`http://localhost:5000/api/tiendas/${store._id}`, {
+      const response = await fetch(`${API_URL}/api/tiendas/${store._id}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${localStorage.getItem("token")}`
@@ -606,7 +610,7 @@ const TiendaProfile = ({ user }) => {
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         {product.imageUrl && (
                           <img 
-                            src={`http://localhost:5000${product.imageUrl}`} 
+                            src={`${API_URL}${product.imageUrl}`} 
                             alt={product.name}
                             style={{ 
                               width: "40px", 
@@ -1574,6 +1578,27 @@ const TiendaProfile = ({ user }) => {
                   }}>
                     Imagen del Producto
                   </label>
+                  
+                  {/* Show current image if no new image selected */}
+                  {editingProduct?.imageUrl && !editProductData.image && (
+                    <div style={{ marginBottom: "10px" }}>
+                      <img 
+                        src={`${API_URL}${editingProduct.imageUrl}`}
+                        alt={editingProduct.name}
+                        style={{
+                          width: "80px",
+                          height: "80px",
+                          objectFit: "cover",
+                          borderRadius: "6px",
+                          border: "1px solid #ddd"
+                        }}
+                      />
+                      <div style={{ fontSize: "12px", color: "#666", marginTop: "5px" }}>
+                        Imagen actual
+                      </div>
+                    </div>
+                  )}
+                  
                   <input
                     type="file"
                     accept="image/*"
@@ -1586,6 +1611,8 @@ const TiendaProfile = ({ user }) => {
                       background: "white"
                     }}
                   />
+                  
+                  {/* Update the status message */}
                   {editProductData.image ? (
                     <span style={{ 
                       display: "block", 
@@ -1603,7 +1630,9 @@ const TiendaProfile = ({ user }) => {
                       color: "#666",
                       fontSize: "14px"
                     }}>
-                      Se conservará la imagen actual
+                      {editingProduct?.imageUrl 
+                        ? "Se conservará la imagen actual"
+                        : "No hay imagen actual. Selecciona una imagen."}
                     </span>
                   )}
                 </div>
