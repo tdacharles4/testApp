@@ -3,8 +3,25 @@ import Corte from '../models/Corte.js';
 import Venta from '../models/Ventas.js';
 import Salida from '../models/Salidas.js';
 import requireAuth from '../middleware/requireAuth.js';
+import connectDB from '../config/db.js'; // Add this import
 
 const router = express.Router();
+
+// Middleware to ensure DB connection for corte routes
+const ensureDB = async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection error in corte routes:', error);
+    res.status(500).json({ 
+      error: 'Error de conexión con la base de datos' 
+    });
+  }
+};
+
+// Apply DB connection middleware to all corte routes
+router.use(ensureDB);
 
 // Apply auth middleware to all corte routes
 router.use(requireAuth);
@@ -157,7 +174,7 @@ router.post('/generar', async (req, res) => {
       numSalidas: salidas.length,
       ventas: ventas.map(v => v._id),
       salidas: salidas.map(s => s._id),
-      generatedBy: req.user._id // This should now work
+      generatedBy: req.user._id
     });
     
     await corte.save();
@@ -170,15 +187,35 @@ router.post('/generar', async (req, res) => {
     
   } catch (error) {
     console.error('Error generating corte:', error);
-    res.status(500).json({ 
-      error: 'Error al generar el corte',
-      details: error.message 
+    
+    // Provide more specific error messages
+    let errorMessage = 'Error al generar el corte';
+    let statusCode = 500;
+    
+    if (error.name === 'ValidationError') {
+      errorMessage = 'Datos de corte inválidos';
+      statusCode = 400;
+    } else if (error.code === 11000) {
+      errorMessage = 'Ya existe un corte para este período';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
 router.get('/', async (req, res) => {
   try {
+    // Optional: Check user permissions for viewing cortes
+    if (req.user.role !== 'admin' && !req.user.permissions?.administrador) {
+      return res.status(403).json({ 
+        error: 'No autorizado para ver los cortes' 
+      });
+    }
+
     const cortes = await Corte.find()
       .sort({ createdAt: -1 })
       .populate('generatedBy', 'name username');
@@ -188,13 +225,20 @@ router.get('/', async (req, res) => {
     console.error('Error fetching cortes:', error);
     res.status(500).json({ 
       error: 'Error al obtener los cortes',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
 router.get('/:id', async (req, res) => {
   try {
+    // Optional: Check user permissions
+    if (req.user.role !== 'admin' && !req.user.permissions?.administrador) {
+      return res.status(403).json({ 
+        error: 'No autorizado para ver este corte' 
+      });
+    }
+
     const corte = await Corte.findById(req.params.id)
       .populate('ventas')
       .populate('salidas')
@@ -209,9 +253,50 @@ router.get('/:id', async (req, res) => {
     res.json(corte);
   } catch (error) {
     console.error('Error fetching corte details:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        error: 'ID de corte inválido' 
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Error al obtener los detalles del corte',
-      details: error.message 
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Optional: Add delete endpoint (admin only)
+router.delete('/:id', async (req, res) => {
+  try {
+    // Only admin can delete cortes
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ 
+        error: 'Solo administradores pueden eliminar cortes' 
+      });
+    }
+
+    const corte = await Corte.findById(req.params.id);
+    
+    if (!corte) {
+      return res.status(404).json({ 
+        error: 'Corte no encontrado' 
+      });
+    }
+    
+    await Corte.findByIdAndDelete(req.params.id);
+    
+    res.json({ 
+      message: 'Corte eliminado exitosamente',
+      corteId: corte.corteId 
+    });
+    
+  } catch (error) {
+    console.error('Error deleting corte:', error);
+    res.status(500).json({ 
+      error: 'Error al eliminar el corte',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

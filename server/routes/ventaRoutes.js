@@ -1,11 +1,23 @@
 import express from "express";
 import Venta from "../models/Ventas.js";
-import Tienda from "../models/Tienda.js"; // Make sure to import Tienda
+import Tienda from "../models/Tienda.js";
 import requireAuth from "../middleware/requireAuth.js";
+import connectDB from "../config/db.js"; // ESSENTIAL: Add this import
 
 const router = express.Router();
 
-// Generate sale ID
+// ESSENTIAL: DB connection middleware for Vercel (adds 7 lines)
+router.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database connection error:", error);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
+
+// Keep your original helper function
 const generateSaleId = async () => {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
@@ -29,8 +41,6 @@ const generateSaleId = async () => {
   
   return `${year}${month}${sequenceNumber.toString().padStart(4, '0')}`;
 };
-
-// NEW ROUTES FOR STOCK MANAGEMENT
 
 // Get current stock for a specific product in a store
 router.get("/stock/:storeTag/:productClave", async (req, res) => {
@@ -57,6 +67,7 @@ router.get("/stock/:storeTag/:productClave", async (req, res) => {
       price: product.price
     });
   } catch (error) {
+    console.error("Error in stock by product:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -82,6 +93,7 @@ router.get("/stock/:storeTag", async (req, res) => {
       }))
     });
   } catch (error) {
+    console.error("Error in stock by store:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -204,6 +216,7 @@ router.put("/stock/update", requireAuth, async (req, res) => {
       }
     });
   } catch (error) {
+    console.error("Error updating stock:", error);
     res.status(500).json({ message: error.message });
   }
 });
