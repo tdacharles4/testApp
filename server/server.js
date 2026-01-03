@@ -21,7 +21,8 @@ const __dirname = path.dirname(__filename);
 app.use(cors({
   origin: [
     "https://test-app-omega-teal.vercel.app",
-    "http://localhost:3000"
+    "http://localhost:3000",
+    "https://eu.cienciasexactas.com"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
