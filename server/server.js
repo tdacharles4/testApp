@@ -19,15 +19,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Middleware
+import cors from "cors";
+
 app.use(cors({
-  origin: process.env.NODE_ENV === "production" 
-    ? [
-        process.env.CLIENT_URL || "https://test-app-omega-teal.vercel.app",
-        "http://localhost:3000"
-      ]
-    : "http://localhost:3000",
+  origin: [
+    "https://test-app-omega-teal.vercel.app",
+    "http://localhost:3000"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+
+app.options("*", cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
