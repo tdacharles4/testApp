@@ -10,7 +10,7 @@ import userRoutes from "./routes/userRoutes.js";
 import corteRoutes from "./routes/corteRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
-import mongoose from "mongoose"; // Add this import
+import mongoose from "mongoose";
 
 dotenv.config();
 
