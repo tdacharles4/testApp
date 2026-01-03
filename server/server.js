@@ -45,6 +45,8 @@ app.use("/uploads", (req, res) => {
   });
 });
 
+connectDB().catch(console.error);
+
 // Health check endpoint (required for Vercel)
 app.get("/api/health", async (req, res) => {
   try {
@@ -81,6 +83,17 @@ if (process.env.NODE_ENV === "production") {
   } catch (error) {
     console.warn("Frontend build not found, API only mode");
   }
+}
+
+if (process.env.VERCEL) {
+  // Export the app for Vercel
+  module.exports = app;
+} else {
+  // Local development
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 }
 
 export default app;
