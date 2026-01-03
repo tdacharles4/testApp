@@ -11,7 +11,9 @@ const migrateToAtlas = async () => {
   try {
     // 1. Connect to LOCAL database
     console.log('1. Connecting to LOCAL database...');
-    localConnection = await mongoose.createConnection('mongodb://127.0.0.1:27017/testApp');
+    localConnection = await mongoose
+  .createConnection('mongodb://127.0.0.1:27017/testApp')
+  .asPromise();
     console.log('✅ Connected to local DB\n');
     
     // 2. Connect to ATLAS database
@@ -25,7 +27,9 @@ const migrateToAtlas = async () => {
       throw new Error('MONGO_URI not found in .env file. Get it from Atlas dashboard.');
     }
     
-    atlasConnection = await mongoose.createConnection(atlasUri);
+    atlasConnection = await mongoose
+  .createConnection(atlasUri)
+  .asPromise();
     console.log('✅ Connected to Atlas DB\n');
     
     // 3. Get all collection names from local DB
