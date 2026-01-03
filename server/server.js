@@ -28,8 +28,6 @@ app.use(cors({
   credentials: true
 }));
 
-app.options("/*", cors());
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -79,7 +77,7 @@ if (process.env.NODE_ENV === "production") {
     const frontendPath = path.join(__dirname, "../client/dist");
     app.use(express.static(frontendPath));
     
-    app.get("/*", (req, res) => {
+    app.get("/.*/", (req, res) => {
       res.sendFile(path.join(frontendPath, "index.html"));
     });
   } catch (error) {
