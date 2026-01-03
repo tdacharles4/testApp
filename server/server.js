@@ -18,9 +18,6 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Middleware
-import cors from "cors";
-
 app.use(cors({
   origin: [
     "https://test-app-omega-teal.vercel.app",
