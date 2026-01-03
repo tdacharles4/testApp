@@ -22,7 +22,7 @@ const __dirname = path.dirname(__filename);
 app.use(cors({
   origin: process.env.NODE_ENV === "production" 
     ? [
-        process.env.CLIENT_URL || "https://test-app-omega-teal.vercel.app/",
+        process.env.CLIENT_URL || "https://test-app-omega-teal.vercel.app",
         "http://localhost:3000"
       ]
     : "http://localhost:3000",
