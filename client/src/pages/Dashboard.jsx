@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 export default function Dashboard({ user }) {
   const [dateRange, setDateRange] = useState("mensual");
@@ -28,53 +28,65 @@ export default function Dashboard({ user }) {
   });
 
   // Get current date ranges based on selection
-  const getDateRange = () => {
-    const now = new Date();
-    
-    const formatForAPI = (date) => {
-      // Format as YYYY-MM-DD for API consistency
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    switch (dateRange) {
-      case "mensual":
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        return {
-          start: formatForAPI(startOfMonth),
-          end: formatForAPI(endOfMonth)
-        };
-      case "anual":
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const endOfYear = new Date(now.getFullYear(), 11, 31);
-        return {
-          start: formatForAPI(startOfYear),
-          end: formatForAPI(endOfYear)
-        };
-      case "especifico":
-        return {
-          start: customStartDate,
-          end: customEndDate
-        };
-      default:
-        return { start: "", end: "" };
-    }
+  const getDateRange = useCallback(() => {
+  const now = new Date();
+  
+  const formatForAPI = (date) => {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  useEffect(() => {
-    fetchSalesData();
-  }, [dateRange, customStartDate, customEndDate]);
+  switch (dateRange) {
+    case "mensual":
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return {
+        start: formatForAPI(startOfMonth),
+        end: formatForAPI(endOfMonth)
+      };
+    case "anual":
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      const endOfYear = new Date(now.getFullYear(), 11, 31);
+      return {
+        start: formatForAPI(startOfYear),
+        end: formatForAPI(endOfYear)
+      };
+    case "especifico":
+      return {
+        start: customStartDate,
+        end: customEndDate
+      };
+    default:
+      return { start: "", end: "" };
+  }
+}, [dateRange, customStartDate, customEndDate]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [salesData, filters, showCommissions]);
+  // Calculate post-comision amount (from Historial.jsx)
+  const calculatePostComision = useCallback((venta) => {
+    const tarjetaAmount = venta.amountTarjeta || 0;
+    const comision = tarjetaAmount * 0.046; // 4.6% commission
+    return venta.amount - comision;
+  }, []);
 
-  // FIX: add Authorization header to fetchSalesData
+  // Get payment method display
+  const getPaymentMethodDisplay = useCallback((venta) => {
+    const methods = [];
+    if (venta.amountEfectivo > 0) methods.push('Efectivo');
+    if (venta.amountTarjeta > 0) methods.push('Tarjeta');
+    if (venta.amountTransferencia > 0) methods.push('Transferencia');
+    
+    if (methods.length === 1) {
+      return methods[0];
+    } else if (methods.length > 1) {
+      return "Múltiple";
+    }
+    return "No especificado";
+  }, []);
 
-const fetchSalesData = async () => {
+  // FIX: Wrap fetchSalesData in useCallback
+  const fetchSalesData = useCallback(async () => {
   try {
     setLoading(true);
     const dateRangeObj = getDateRange();
@@ -104,68 +116,16 @@ const fetchSalesData = async () => {
   } finally {
     setLoading(false);
   }
-};
+}, [getDateRange]); 
 
-
-  // Calculate post-comision amount (from Historial.jsx)
-  const calculatePostComision = (venta) => {
-    const tarjetaAmount = venta.amountTarjeta || 0;
-    const comision = tarjetaAmount * 0.046; // 4.6% commission
-    return venta.amount - comision;
-  };
-
-  // Calculate amount based on commission setting
-  const calculateAmount = (venta) => {
-    return showCommissions ? calculatePostComision(venta) : venta.amount;
-  };
-
-  // Get payment method display
-  const getPaymentMethodDisplay = (venta) => {
-    const methods = [];
-    if (venta.amountEfectivo > 0) methods.push('Efectivo');
-    if (venta.amountTarjeta > 0) methods.push('Tarjeta');
-    if (venta.amountTransferencia > 0) methods.push('Transferencia');
-    
-    if (methods.length === 1) {
-      return methods[0];
-    } else if (methods.length > 1) {
-      return "Múltiple";
-    }
-    return "No especificado";
-  };
-
-  // Get unique values for filters
-  const getUniqueValues = (field) => {
-    const values = salesData.map(sale => {
-      if (field === 'paymentMethod') return getPaymentMethodDisplay(sale);
-      if (field === 'contractType') return sale.storeContractType;
-      if (field === 'store') return sale.store.name;
-      if (field === 'item') {
-        // Only show items from selected stores if store filter is active
-        if (filters.store.active && filters.store.selected.length > 0) {
-          if (filters.store.selected.includes(sale.store.name)) {
-            return sale.item.clave;
-          }
-          return null;
-        }
-        return sale.item.clave;
-      }
-      if (field === 'user') {
-        const user = sale.user;
-        if (typeof user === 'object' && user !== null) {
-          return user.name || user.username || 'No especificado';
-        }
-        return 'No especificado';
-      }
-      return null;
-    }).filter(Boolean);
-    
-    return [...new Set(values)].sort();
-  };
-
-  // Apply all filters
-  const applyFilters = () => {
+  // FIX: Wrap applyFilters in useCallback
+  const applyFilters = useCallback(() => {
     let filtered = [...salesData];
+
+    // Calculate amount based on commission setting
+    const calculateAmount = (venta) => {
+      return showCommissions ? calculatePostComision(venta) : venta.amount;
+    };
 
     // Payment Method filter
     if (filters.paymentMethod.active && filters.paymentMethod.selected.length > 0) {
@@ -215,6 +175,44 @@ const fetchSalesData = async () => {
     // Calculate total amount for filtered data
     const total = filtered.reduce((sum, sale) => sum + calculateAmount(sale), 0);
     setTotalAmount(total);
+  }, [salesData, filters, showCommissions, calculatePostComision, getPaymentMethodDisplay]);
+
+  // UseEffects with proper dependencies
+  useEffect(() => {
+    fetchSalesData();
+  }, [fetchSalesData]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
+
+  // Get unique values for filters
+  const getUniqueValues = (field) => {
+    const values = salesData.map(sale => {
+      if (field === 'paymentMethod') return getPaymentMethodDisplay(sale);
+      if (field === 'contractType') return sale.storeContractType;
+      if (field === 'store') return sale.store.name;
+      if (field === 'item') {
+        // Only show items from selected stores if store filter is active
+        if (filters.store.active && filters.store.selected.length > 0) {
+          if (filters.store.selected.includes(sale.store.name)) {
+            return sale.item.clave;
+          }
+          return null;
+        }
+        return sale.item.clave;
+      }
+      if (field === 'user') {
+        const user = sale.user;
+        if (typeof user === 'object' && user !== null) {
+          return user.name || user.username || 'No especificado';
+        }
+        return 'No especificado';
+      }
+      return null;
+    }).filter(Boolean);
+    
+    return [...new Set(values)].sort();
   };
 
   // Calculate total commission for filtered sales
@@ -225,6 +223,10 @@ const fetchSalesData = async () => {
   // Generate segments for donut chart based on ALL active filter combinations
   const generateDonutSegments = () => {
     if (filteredSales.length === 0) return [];
+
+    const calculateAmount = (venta) => {
+      return showCommissions ? calculatePostComision(venta) : venta.amount;
+    };
 
     const segments = [];
     const total = totalAmount;
@@ -819,7 +821,7 @@ const fetchSalesData = async () => {
                       }}
                     >
                       <span>🏪 Tienda</span>
-                      <span>{showFilter.store ? "▲" : "▼"}</span>
+                      <span>{showFilter.store ? "▲" : "▼"}}</span>
                     </button>
                     {showFilter.store && (
                       <div style={{

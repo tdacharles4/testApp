@@ -1,9 +1,14 @@
 {
+  "name": "my-fullstack-app",
+  "version": "1.0.0",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
-    "build": "echo 'No build step needed for Node.js API'",
-    "vercel-build": "echo 'Building for Vercel'"
+    "build:client": "cd client && npm run build",
+    "install:client": "cd client && npm install",
+    "start:server": "cd server && npm start",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm start\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
   },
   "engines": {
     "node": ">=18.x"

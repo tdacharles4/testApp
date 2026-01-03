@@ -90,17 +90,19 @@ export default function Entrada() {
     }
   }, [discountEnabled, discountType, discountValue, selectedItem, itemPrice]);
 
-  const distributePayments = (totalAmount) => {
-    const selectedMethods = Object.keys(paymentMethods).filter(key => paymentMethods[key].selected);
-    const equalAmount = (totalAmount / selectedMethods.length).toFixed(2);
-    
-    const updatedPayments = { ...paymentMethods };
-    selectedMethods.forEach(method => {
-      updatedPayments[method].amount = equalAmount;
-    });
-    
-    setPaymentMethods(updatedPayments);
-  };
+  // Remove the unused distributePayments function
+  // This function was declared but never used
+  // const distributePayments = (totalAmount) => {
+  //   const selectedMethods = Object.keys(paymentMethods).filter(key => paymentMethods[key].selected);
+  //   const equalAmount = (totalAmount / selectedMethods.length).toFixed(2);
+  //   
+  //   const updatedPayments = { ...paymentMethods };
+  //   selectedMethods.forEach(method => {
+  //     updatedPayments[method].amount = equalAmount;
+  //   });
+  //   
+  //   setPaymentMethods(updatedPayments);
+  // };
 
   // Update payment amounts when total amount changes
   useEffect(() => {
@@ -128,7 +130,8 @@ export default function Entrada() {
         }
       }
     }
-  }, [amount, multiplePayments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amount, multiplePayments]); // We exclude paymentMethods to prevent infinite loop
 
   const calculateDiscountPercentage = () => {
     if (!itemPrice || itemPrice === 0) return 0;

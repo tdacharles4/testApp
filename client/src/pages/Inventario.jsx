@@ -6,7 +6,6 @@ const Inventario = ({ user }) => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [stores, setStores] = useState([]);
   const [filters, setFilters] = useState({
     activo: null,
     producto: [],
@@ -22,27 +21,28 @@ const Inventario = ({ user }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/tiendas")
-      .then((res) => res.json())
-      .then((data) => {
-        setStores(data);
-        
-        // Flatten all products from all stores
-        const products = data.flatMap(store => 
-          store.products?.map(product => ({
-            ...product,
-            storeName: store.name,
-            storeTag: store.tag,
-            storeId: store._id,
-            contractType: store.contractType,
-            contractValue: store.contractValue
-          })) || []
-        );
-        
-        setAllProducts(products);
-        setFilteredProducts(products);
-      })
-      .catch((err) => console.error(err));
+  fetch("http://localhost:5000/api/tiendas")
+    .then((res) => res.json())
+    .then((data) => {
+      // Don't set stores since we're not using it
+      // setStores(data);
+      
+      // Flatten all products from all stores
+      const products = data.flatMap(store => 
+        store.products?.map(product => ({
+          ...product,
+          storeName: store.name,
+          storeTag: store.tag,
+          storeId: store._id,
+          contractType: store.contractType,
+          contractValue: store.contractValue
+        })) || []
+      );
+      
+      setAllProducts(products);
+      setFilteredProducts(products);
+    })
+    .catch((err) => console.error(err));
   }, []);
 
   useEffect(() => {

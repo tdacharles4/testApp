@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 
 const Historial = ({ user }) => {
   const [ventas, setVentas] = useState([]);
@@ -27,14 +27,6 @@ const Historial = ({ user }) => {
     registra: false // New filter toggle for registra
   });
 
-  useEffect(() => {
-    fetchVentas();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [ventas, filters]);
-
   const fetchVentas = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/ventas/historial");
@@ -48,36 +40,34 @@ const Historial = ({ user }) => {
     }
   };
 
-  const toggleExpandPagos = (id) => {
-    setExpandedPagos(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
-
-  const toggleFilter = (filterType) => {
-    setShowFilter(prev => ({
-      ...prev,
-      [filterType]: !prev[filterType]
-    }));
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN'
-    }).format(amount);
-  };
+  useEffect(() => {
+    fetchVentas();
+  }, []);
 
   // Calculate post-comision amount
-  const calculatePostComision = (venta) => {
+  const calculatePostComision = useCallback((venta) => {
     const tarjetaAmount = venta.amountTarjeta || 0;
     const comision = tarjetaAmount * 0.046; // 4.6% commission
     return venta.amount - comision;
-  };
+  }, []);
+
+  // Get payment method display
+  const getPaymentMethodDisplay = useCallback((venta) => {
+    const methods = [];
+    if (venta.amountEfectivo > 0) methods.push('Efectivo');
+    if (venta.amountTarjeta > 0) methods.push('Tarjeta');
+    if (venta.amountTransferencia > 0) methods.push('Transferencia');
+    
+    if (methods.length === 1) {
+      return methods[0];
+    } else if (methods.length > 1) {
+      return "Múltiple";
+    }
+    return "No especificado";
+  }, []);
 
   // Calculate dinero marca using stored contract data
-  const calculateDineroMarca = (venta) => {
+  const calculateDineroMarca = useCallback((venta) => {
     const postComision = calculatePostComision(venta);
     const contrato = venta.storeContractType || 'DCE';
     const contractValue = venta.storeContractValue || 0;
@@ -90,10 +80,10 @@ const Historial = ({ user }) => {
       return postComision; // 100% for marca
     }
     return postComision;
-  };
+  }, [calculatePostComision]);
 
   // Calculate dinero tienda using stored contract data
-  const calculateDineroTienda = (venta) => {
+  const calculateDineroTienda = useCallback((venta) => {
     const postComision = calculatePostComision(venta);
     const contrato = venta.storeContractType || 'DCE';
     const contractValue = venta.storeContractValue || 0;
@@ -106,25 +96,10 @@ const Historial = ({ user }) => {
       return postComision; // 100% for tienda
     }
     return 0;
-  };
-
-  // Get payment method display
-  const getPaymentMethodDisplay = (venta) => {
-    const methods = [];
-    if (venta.amountEfectivo > 0) methods.push('Efectivo');
-    if (venta.amountTarjeta > 0) methods.push('Tarjeta');
-    if (venta.amountTransferencia > 0) methods.push('Transferencia');
-    
-    if (methods.length === 1) {
-      return methods[0];
-    } else if (methods.length > 1) {
-      return "Múltiple";
-    }
-    return "No especificado";
-  };
+  }, [calculatePostComision]);
 
   // Get unique values for filters
-  const getUniqueValues = (field) => {
+  const getUniqueValues = useCallback((field) => {
     const values = ventas.map(venta => {
       if (field === 'codigo') return venta.item.clave;
       if (field === 'marca') return venta.store.name;
@@ -144,16 +119,10 @@ const Historial = ({ user }) => {
     }).filter(Boolean);
     
     return [...new Set(values)].sort();
-  };
-
-  // Get unique payment methods
-  const getUniquePaymentMethods = () => {
-    const methods = ventas.map(venta => getPaymentMethodDisplay(venta));
-    return [...new Set(methods)].sort();
-  };
+  }, [ventas]);
 
   // Apply all filters
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...ventas];
 
     // Date filter
@@ -225,6 +194,32 @@ const Historial = ({ user }) => {
     }
 
     setFilteredVentas(filtered);
+  }, [ventas, filters, getPaymentMethodDisplay]);
+
+  // Run applyFilters when dependencies change
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
+
+  const toggleExpandPagos = (id) => {
+    setExpandedPagos(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const toggleFilter = (filterType) => {
+    setShowFilter(prev => ({
+      ...prev,
+      [filterType]: !prev[filterType]
+    }));
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN'
+    }).format(amount);
   };
 
   // Update filter functions

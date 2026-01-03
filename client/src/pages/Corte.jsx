@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const Corte = ({ user }) => {
-  const [loading, setLoading] = useState(false);
   const [generatingCorte, setGeneratingCorte] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');

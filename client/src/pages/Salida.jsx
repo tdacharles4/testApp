@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 const Salida = ({ user }) => {
   const [exits, setExits] = useState([]);
@@ -32,10 +32,6 @@ const Salida = ({ user }) => {
     fetchExits();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [exits, filters]);
-
   const fetchExits = async () => {
     try {
       const response = await fetch("http://localhost:5000/api/salidas");
@@ -48,6 +44,67 @@ const Salida = ({ user }) => {
       setLoading(false);
     }
   };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN'
+    }).format(amount);
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-MX');
+  };
+
+  // Apply all filters
+  const applyFilters = useCallback(() => {
+    let filtered = [...exits];
+
+    // Date filter
+    if (filters.date.startDate || filters.date.endDate) {
+      filtered = filtered.filter(exit => {
+        const exitDate = new Date(exit.fecha);
+        const startDate = filters.date.startDate ? new Date(filters.date.startDate) : null;
+        const endDate = filters.date.endDate ? new Date(filters.date.endDate) : null;
+
+        if (startDate && endDate) {
+          return exitDate >= startDate && exitDate <= endDate;
+        } else if (startDate) {
+          return exitDate >= startDate;
+        } else if (endDate) {
+          return exitDate <= endDate;
+        }
+        return true;
+      });
+    }
+
+    // Pago search filter
+    if (filters.pago.search) {
+      filtered = filtered.filter(exit => 
+        exit.pago.toLowerCase().includes(filters.pago.search.toLowerCase())
+      );
+    }
+
+    // Monto sort
+    filtered.sort((a, b) => {
+      if (filters.monto.order === "asc") {
+        return a.monto - b.monto;
+      } else {
+        return b.monto - a.monto;
+      }
+    });
+
+    // Always sort by date (most recent first) as secondary sort
+    filtered.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+    setFilteredExits(filtered);
+  }, [exits, filters]);
+
+  // Run applyFilters when dependencies change
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -64,18 +121,6 @@ const Salida = ({ user }) => {
       fecha: e.target.value,
       isToday: false
     }));
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN'
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-MX');
   };
 
   const validateForm = () => {
@@ -122,7 +167,6 @@ const Salida = ({ user }) => {
       });
 
       if (response.ok) {
-        const result = await response.json();
         alert("Salida registrada exitosamente");
         setFormData({
           monto: "",
@@ -171,49 +215,6 @@ const Salida = ({ user }) => {
 
   const cancelDelete = () => {
     setDeleteConfirm(null);
-  };
-
-  const applyFilters = () => {
-    let filtered = [...exits];
-
-    // Date filter
-    if (filters.date.startDate || filters.date.endDate) {
-      filtered = filtered.filter(exit => {
-        const exitDate = new Date(exit.fecha);
-        const startDate = filters.date.startDate ? new Date(filters.date.startDate) : null;
-        const endDate = filters.date.endDate ? new Date(filters.date.endDate) : null;
-
-        if (startDate && endDate) {
-          return exitDate >= startDate && exitDate <= endDate;
-        } else if (startDate) {
-          return exitDate >= startDate;
-        } else if (endDate) {
-          return exitDate <= endDate;
-        }
-        return true;
-      });
-    }
-
-    // Pago search filter
-    if (filters.pago.search) {
-      filtered = filtered.filter(exit => 
-        exit.pago.toLowerCase().includes(filters.pago.search.toLowerCase())
-      );
-    }
-
-    // Monto sort
-    filtered.sort((a, b) => {
-      if (filters.monto.order === "asc") {
-        return a.monto - b.monto;
-      } else {
-        return b.monto - a.monto;
-      }
-    });
-
-    // Always sort by date (most recent first) as secondary sort
-    filtered.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-
-    setFilteredExits(filtered);
   };
 
   const updateDateFilter = (startDate, endDate) => {

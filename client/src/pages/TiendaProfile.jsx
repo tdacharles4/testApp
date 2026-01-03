@@ -8,8 +8,6 @@ const TiendaProfile = ({ user }) => {
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [tempQuantity, setTempQuantity] = useState(0);
-  const [tempPrice, setTempPrice] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showEditStore, setShowEditStore] = useState(false);

@@ -7,15 +7,16 @@ export default function LoginPage({ setUser }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
   async function handleLogin(e) {
     e.preventDefault();
 
     try {
-      const res = await fetch("http://localhost:5000/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+      const res = await fetch(`${API_URL}/api/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
