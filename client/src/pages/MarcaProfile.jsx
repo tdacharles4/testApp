@@ -1231,7 +1231,7 @@ const TiendaProfile = ({ user }) => {
                     color: "#333",
                     fontSize: "15px"
                   }}>
-                    Imagen del Producto *
+                    Imagen del Producto (opcional)
                   </label>
                   <input
                     type="file"
@@ -1282,7 +1282,6 @@ const TiendaProfile = ({ user }) => {
                       boxSizing: "border-box"
                     }}
                     placeholder="Ej: PROD001"
-                    disabled={!newProduct.image}
                   />
                 </div>
               </div>
@@ -1311,7 +1310,6 @@ const TiendaProfile = ({ user }) => {
                     boxSizing: "border-box"
                   }}
                   placeholder="Ej: Camiseta Básica Negra"
-                  disabled={!newProduct.image}
                 />
               </div>
 
@@ -1340,7 +1338,6 @@ const TiendaProfile = ({ user }) => {
                     boxSizing: "border-box"
                   }}
                   placeholder="Descripción del producto..."
-                  disabled={!newProduct.image}
                 />
               </div>
 
@@ -1383,7 +1380,6 @@ const TiendaProfile = ({ user }) => {
                         boxSizing: "border-box"
                       }}
                       placeholder="0.00"
-                      disabled={!newProduct.image}
                     />
                   </div>
                 </div>
@@ -1410,7 +1406,6 @@ const TiendaProfile = ({ user }) => {
                   }}>
                     <button
                       onClick={() => handleNewProductQuantity(newProduct.quantity - 1)}
-                      disabled={!newProduct.image}
                       style={{
                         background: "#6c757d",
                         color: "white",
@@ -1438,7 +1433,6 @@ const TiendaProfile = ({ user }) => {
                     
                     <button
                       onClick={() => handleNewProductQuantity(newProduct.quantity + 1)}
-                      disabled={!newProduct.image}
                       style={{
                         background: "#6c757d",
                         color: "white",
@@ -1483,7 +1477,6 @@ const TiendaProfile = ({ user }) => {
                       checked={newProduct.fechaRecepcionHoy}
                       onChange={(e) => handleNewProductFechaRecepcionHoy(e.target.checked)}
                       style={{ transform: "scale(1.2)" }}
-                      disabled={!newProduct.image}
                     />
                     <span style={{ opacity: newProduct.image ? 1 : 0.6 }}>
                       La fecha de recepción es hoy
@@ -1515,7 +1508,6 @@ const TiendaProfile = ({ user }) => {
                           background: newProduct.image ? "white" : "#f8f9fa",
                           boxSizing: "border-box"
                         }}
-                        disabled={!newProduct.image}
                       />
                     </div>
                   )}
