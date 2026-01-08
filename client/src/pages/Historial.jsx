@@ -27,17 +27,35 @@ const Historial = ({ user }) => {
     registra: false // New filter toggle for registra
   });
 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
   const fetchVentas = async () => {
-    try {
-      const response = await fetch("http://localhost:5000/api/ventas/historial");
-      const data = await response.json();
-      setVentas(data);
-      setFilteredVentas(data);
-    } catch (error) {
-      console.error("Error fetching ventas:", error);
-    } finally {
-      setLoading(false);
-    }
+      try {
+        setLoading(true);
+        setError(null); // Resetear error
+        
+        console.log("Fetching sales from:", `${API_URL}/api/ventas/historial`);
+        
+        const response = await fetch(`${API_URL}/api/ventas/historial`);
+        
+        if (!response.ok) {
+          throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Sales fetched successfully:", data.length, "items");
+        setVentas(data);
+        setFilteredVentas(data);
+      } catch (error) {
+        console.error("Error fetching ventas:", error);
+        setError(`No se pudieron cargar las ventas: ${error.message}`);
+        
+        // Datos de ejemplo para debugging
+        setVentas([]);
+        setFilteredVentas([]);
+      } finally {
+        setLoading(false);
+      }
   };
 
   useEffect(() => {

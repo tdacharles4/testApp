@@ -2,11 +2,10 @@ import express from "express";
 import Venta from "../models/Ventas.js";
 import Tienda from "../models/Tienda.js";
 import requireAuth from "../middleware/requireAuth.js";
-import connectDB from "../config/db.js"; // ESSENTIAL: Add this import
+import connectDB from "../config/db.js";
 
 const router = express.Router();
 
-// ESSENTIAL: DB connection middleware for Vercel (adds 7 lines)
 router.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -17,33 +16,29 @@ router.use(async (req, res, next) => {
   }
 });
 
-// Keep your original helper function
 const generateSaleId = async () => {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
   const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const datePrefix = `${year}${month}`;
   
-  // Buscar la última venta (sin filtrar por mes, para mayor seguridad)
-  const lastSale = await Venta.findOne().sort({ createdAt: -1 }).limit(1);
+  // Buscar la última venta del mes actual basada en saleId
+  const lastSale = await Venta.findOne({
+    saleId: { $regex: `^${datePrefix}` }
+  }).sort({ saleId: -1 }).limit(1);
   
   let sequenceNumber = 1;
   if (lastSale && lastSale.saleId) {
-    // Extraer la parte numérica del saleId
-    const match = lastSale.saleId.match(/\d{6}(\d{4})$/);
-    if (match) {
-      const lastSequence = parseInt(match[1]);
+    // Extraer el número de secuencia del saleId (últimos 4 dígitos)
+    const lastSequence = parseInt(lastSale.saleId.slice(-4));
+    if (!isNaN(lastSequence)) {
       sequenceNumber = lastSequence + 1;
-    } else {
-      // Si no hay formato válido, contar todas las ventas
-      const totalSales = await Venta.countDocuments();
-      sequenceNumber = totalSales + 1;
     }
   }
   
-  return `${year}${month}${sequenceNumber.toString().padStart(4, '0')}`;
+  return `${datePrefix}${sequenceNumber.toString().padStart(4, '0')}`;
 };
 
-// Get current stock for a specific product in a store
 router.get("/stock/:storeTag/:productClave", async (req, res) => {
   try {
     const { storeTag, productClave } = req.params;
@@ -73,7 +68,6 @@ router.get("/stock/:storeTag/:productClave", async (req, res) => {
   }
 });
 
-// Get stock for all products in a store
 router.get("/stock/:storeTag", async (req, res) => {
   try {
     const { storeTag } = req.params;
@@ -99,7 +93,6 @@ router.get("/stock/:storeTag", async (req, res) => {
   }
 });
 
-// Default monthly date filtering (Required for dashboard)
 router.get("/", async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -144,44 +137,60 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Get all sales (Required for Historial de Ventas)
 router.get("/historial", async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
-    console.log("HISTORIAL API - Received dates:", { startDate, endDate });
+    console.log("HISTORIAL API - Fetching sales...");
+
+    let allVentas = await Venta.find()
+      .populate('user', 'name username')
+      .sort({ createdAt: -1 });
     
-    let allVentas = await Venta.find().populate('user', 'name username');
+    console.log(`HISTORIAL API - Found ${allVentas.length} total sales`);
     
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      
-      console.log("HISTORIAL API - Filtering between:", start, "and", end);
-      
-      allVentas = allVentas.filter(venta => {
-        try {
-          const [day, month, year] = venta.date.split('/').map(Number);
-          const ventaDate = new Date(year, month - 1, day);
-          
-          return ventaDate >= start && ventaDate <= end;
-        } catch (error) {
-          console.error("Error parsing date for venta:", venta._id, venta.date);
-          return false;
-        }
-      });
+      try {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        
+        console.log("HISTORIAL API - Filtering between:", start, "and", end);
+        
+        allVentas = allVentas.filter(venta => {
+          try {
+            let ventaDate;
+            if (venta.createdAt) {
+              ventaDate = new Date(venta.createdAt);
+            } else if (venta.date) {
+              const [day, month, year] = venta.date.split('/').map(Number);
+              ventaDate = new Date(year, month - 1, day);
+            } else {
+              return false;
+            }
+            
+            return ventaDate >= start && ventaDate <= end;
+          } catch (error) {
+            console.error("Error parsing date for venta:", venta._id, venta.date);
+            return false;
+          }
+        });
+      } catch (parseError) {
+        console.error("Error parsing filter dates:", parseError);
+      }
     }
     
-    console.log("HISTORIAL API - Returning", allVentas.length, "sales");
+    console.log(`HISTORIAL API - Returning ${allVentas.length} filtered sales`);
     res.json(allVentas);
   } catch (err) {
     console.error("Error in GET /ventas/historial:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ 
+      error: err.message,
+      details: "Error fetching sales history" 
+    });
   }
 });
 
-// Update stock for a product (requires authentication)
 router.put("/stock/update", requireAuth, async (req, res) => {
   try {
     const { storeTag, productClave, newQuantity } = req.body;
@@ -232,7 +241,6 @@ router.get("/generar-saleid", requireAuth, async (req, res) => {
   }
 });
 
-// Create new sale
 router.post("/crear", requireAuth, async (req, res) => {
   const session = await Venta.startSession();
   session.startTransaction();
@@ -347,8 +355,6 @@ router.post("/crear", requireAuth, async (req, res) => {
   }
 });
 
-
-// Delete sale
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const venta = await Venta.findById(req.params.id);

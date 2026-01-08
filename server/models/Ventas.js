@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 
 const VentaSchema = new mongoose.Schema({
-  // New sequential sale ID field
   saleId: { 
     type: String, 
     required: true, 
@@ -25,7 +24,6 @@ const VentaSchema = new mongoose.Schema({
   amountEfectivo: { type: Number, default: 0 },
   amountTarjeta: { type: Number, default: 0 },
   amountTransferencia: { type: Number, default: 0 },
-  // Add contract information from the store
   storeContractType: { 
     type: String, 
     required: true,
@@ -36,7 +34,11 @@ const VentaSchema = new mongoose.Schema({
     type: Number, 
     default: 0 
   },
-  date: { type: String, required: true }
+  date: { type: String, required: true },
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  }
 });
 
 export default mongoose.model("Venta", VentaSchema);
