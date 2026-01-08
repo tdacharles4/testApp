@@ -78,7 +78,7 @@ router.get("/:identifier", async (req, res) => {
   }
 });
 
-// Create store (WITHOUT FILE UPLOAD - Vercel compatible)
+// Create store (Vercel Blob compatible)
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { 
@@ -92,7 +92,6 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
       numeroCuenta, 
       clabe, 
       tarjeta,
-      // Base64 encoded images for products
       products = [] 
     } = req.body;
 
@@ -128,8 +127,8 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
       clave: `${storeTag.toUpperCase()}-${product.clave || `PROD${(index + 1).toString().padStart(3, '0')}`}`,
       name: product.nombre || product.clave || `Producto ${index + 1}`,
       description: product.description || "",
-      // Store base64 image data or use a placeholder
-      imageUrl: product.imageBase64 ? `data:image/jpeg;base64,${product.imageBase64}` : null,
+      // Use Vercel Blob URL or placeholder
+      imageUrl: product.imageUrl || "/logo192.png",
       price: parseFloat(product.price) || 0,
       quantity: parseInt(product.quantity) || 0,
       fechaRecepcion: product.fechaRecepcion || new Date().toISOString().split('T')[0]

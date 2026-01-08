@@ -8,6 +8,7 @@ import ventaRoutes from "./routes/ventaRoutes.js";
 import salidaRoutes from "./routes/salidaRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import corteRoutes from "./routes/corteRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import mongoose from "mongoose";
@@ -38,6 +39,7 @@ app.use("/api/ventas", ventaRoutes);
 app.use("/api/salidas", salidaRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cortes', corteRoutes);
+app.use('/api', uploadRoutes);
 
 app.use("/uploads", (req, res) => {
   res.status(501).json({ 

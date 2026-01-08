@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { upload } from '@vercel/blob/client';
 
 export default function CrearMarca({ user }) {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -189,49 +190,77 @@ export default function CrearMarca({ user }) {
         return;
       }
 
-      const form = new FormData();
-      form.append("storeName", storeName.trim());
-      form.append("storeTag", storeTag.trim().toUpperCase());
-      form.append("contractType", contractType);
-      
-      if (contractType === "Porcentaje") {
-        form.append("contractValue", contractPercentage);
-      } else if (contractType === "Piso") {
-        form.append("contractValue", contractPiso);
-      }
-      
-      if (storeDescription.trim()) {
-        form.append("storeDescription", storeDescription.trim());
-      }
-      
-      // Add contact and bank information
-      if (contacto.trim()) form.append("contacto", contacto.trim());
-      if (banco.trim()) form.append("banco", banco.trim());
-      if (numeroCuenta.trim()) form.append("numeroCuenta", numeroCuenta.trim());
-      if (clabe.trim()) form.append("clabe", clabe.trim());
-      if (tarjeta.trim()) form.append("tarjeta", tarjeta.trim());
+      // Placeholder image URL (React logo or any default image)
+      const PLACEHOLDER_IMAGE = "/logo192.png"; // React logo from public folder
 
-      // Add products data
-      products.forEach((p) => {
-        if (p.image) {
-          form.append("productImages", p.image);
-          form.append("productClaves[]", p.name.trim());
-          form.append("productNombres[]", p.nombreProducto.trim()); // New field
-          form.append("productDescriptions[]", p.description.trim());
-          form.append("productPrices[]", p.price || "0");
-          form.append("productQuantities[]", p.quantity.toString());
-          form.append("productFechasRecepcion[]", p.fechaRecepcion);
-        }
-      });
+      // Upload images to Vercel Blob and prepare products data
+      const productsWithUrls = await Promise.all(
+        products.map(async (p) => {
+          // Skip products without required fields
+          if (!p.name.trim() || !p.nombreProducto.trim()) {
+            return null;
+          }
+
+          let imageUrl = PLACEHOLDER_IMAGE;
+
+          // If there's an image, upload it to Vercel Blob
+          if (p.image) {
+            try {
+              const token = localStorage.getItem("token");
+              const blob = await upload(p.image.name, p.image, {
+                access: 'public',
+                handleUploadUrl: `${API_URL}/api/upload`,
+                clientPayload: JSON.stringify({ token })
+              });
+              imageUrl = blob.url;
+            } catch (uploadError) {
+              console.error("Error uploading image:", uploadError);
+              alert(`Advertencia: No se pudo subir la imagen de ${p.nombreProducto}. Se usará imagen por defecto.`);
+            }
+          }
+
+          return {
+            clave: p.name.trim(),
+            nombre: p.nombreProducto.trim(),
+            description: p.description.trim(),
+            imageUrl: imageUrl,
+            price: p.price || "0",
+            quantity: p.quantity.toString(),
+            fechaRecepcion: p.fechaRecepcion
+          };
+        })
+      );
+
+      // Filter out null entries (products without required fields)
+      const validProducts = productsWithUrls.filter(p => p !== null);
+
+      if (validProducts.length === 0) {
+        alert("Debes agregar al menos un producto con clave y nombre");
+        return;
+      }
+
+      const payload = {
+        storeName: storeName.trim(),
+        storeTag: storeTag.trim().toUpperCase(),
+        contractType: contractType,
+        contractValue: contractType === "Porcentaje" ? contractPercentage : contractPiso,
+        storeDescription: storeDescription.trim() || undefined,
+        contacto: contacto.trim() || undefined,
+        banco: banco.trim() || undefined,
+        numeroCuenta: numeroCuenta.trim() || undefined,
+        clabe: clabe.trim() || undefined,
+        tarjeta: tarjeta.trim() || undefined,
+        products: validProducts
+      };
 
       const token = localStorage.getItem("token");
 
       await axios.post(
         `${API_URL}/api/tiendas`,
-        form,
+        payload,
         {
           headers: {
-            "Content-Type": "multipart/form-data",
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
           }
         }
@@ -239,12 +268,12 @@ export default function CrearMarca({ user }) {
 
       alert("Marca creada exitosamente");
       
-      // Reset all form states instead of reloading
+      // Reset all form states
       setStoreName("");
       setStoreTag("");
       setStoreDescription("");
       setContractType("");
-      setContractPercentage("25.00"); // Reset to default value
+      setContractPercentage("25.00");
       setContractPiso("");
       setContacto("");
       setBanco("");
@@ -760,73 +789,7 @@ export default function CrearMarca({ user }) {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "20px" }}>
-              <div>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "10px", 
-                  fontWeight: "bold",
-                  color: "#333",
-                  fontSize: "15px"
-                }}>
-                  Imagen del Producto *
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => updateImage(i, e.target.files[0])}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    background: "white",
-                    boxSizing: "border-box"
-                  }}
-                />
-                {p.image && (
-                  <span style={{ 
-                    display: "block", 
-                    marginTop: "8px", 
-                    color: "#28a745",
-                    fontSize: "14px",
-                    fontWeight: "bold"
-                  }}>
-                    ✓ Imagen seleccionada
-                  </span>
-                )}
-              </div>
-
-              <div>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "10px", 
-                  fontWeight: "bold",
-                  color: "#333",
-                  fontSize: "15px"
-                }}>
-                  Clave del Producto *
-                </label>
-                <input
-                  type="text"
-                  value={p.name}
-                  onChange={(e) => updateName(i, e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    border: "1px solid #ccc",
-                    borderRadius: "6px",
-                    fontSize: "15px",
-                    background: p.image ? "white" : "#f8f9fa",
-                    boxSizing: "border-box"
-                  }}
-                  placeholder="Ej: PROD001"
-                  disabled={!p.image}
-                />
-              </div>
-            </div>
-
-            {/* New Nombre de Producto Field */}
-            <div style={{ marginBottom: "20px" }}>
+            <div>
               <label style={{ 
                 display: "block", 
                 marginBottom: "10px", 
@@ -834,27 +797,130 @@ export default function CrearMarca({ user }) {
                 color: "#333",
                 fontSize: "15px"
               }}>
-                Nombre de Producto *
+                Imagen del Producto (opcional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => updateImage(i, e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  border: "1px solid #ccc",
+                  borderRadius: "6px",
+                  background: "white",
+                  boxSizing: "border-box"
+                }}
+              />
+              {p.image && (
+                <span style={{ 
+                  display: "block", 
+                  marginTop: "8px", 
+                  color: "#28a745",
+                  fontSize: "14px",
+                  fontWeight: "bold"
+                }}>
+                  ✓ Imagen seleccionada
+                </span>
+              )}
+              {!p.image && (
+                <span style={{ 
+                  display: "block", 
+                  marginTop: "8px", 
+                  color: "#6c757d",
+                  fontSize: "14px"
+                }}>
+                  Se usará imagen por defecto
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label style={{ 
+                display: "block", 
+                marginBottom: "10px", 
+                fontWeight: "bold",
+                color: "#333",
+                fontSize: "15px"
+              }}>
+                Clave del Producto *
               </label>
               <input
                 type="text"
-                value={p.nombreProducto}
-                onChange={(e) => updateNombreProducto(i, e.target.value)}
+                value={p.name}
+                onChange={(e) => updateName(i, e.target.value)}
                 style={{
                   width: "100%",
                   padding: "12px",
                   border: "1px solid #ccc",
                   borderRadius: "6px",
                   fontSize: "15px",
-                  background: p.image ? "white" : "#f8f9fa",
+                  background: "white",
                   boxSizing: "border-box"
                 }}
-                placeholder="Ej: Camiseta Básica Negra"
-                disabled={!p.image}
+                placeholder="Ej: PROD001"
               />
             </div>
+          </div>
 
-            <div style={{ marginBottom: "20px" }}>
+          {/* Nombre de Producto Field */}
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ 
+              display: "block", 
+              marginBottom: "10px", 
+              fontWeight: "bold",
+              color: "#333",
+              fontSize: "15px"
+            }}>
+              Nombre de Producto *
+            </label>
+            <input
+              type="text"
+              value={p.nombreProducto}
+              onChange={(e) => updateNombreProducto(i, e.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "15px",
+                background: "white",
+                boxSizing: "border-box"
+              }}
+              placeholder="Ej: Camiseta Básica Negra"
+            />
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ 
+              display: "block", 
+              marginBottom: "10px", 
+              fontWeight: "bold",
+              color: "#333",
+              fontSize: "15px"
+            }}>
+              Descripción del Producto
+            </label>
+            <textarea
+              value={p.description}
+              onChange={(e) => updateDescription(i, e.target.value)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                fontSize: "15px",
+                minHeight: "80px",
+                resize: "vertical",
+                background: "white",
+                boxSizing: "border-box"
+              }}
+              placeholder="Descripción del producto..."
+            />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <div>
               <label style={{ 
                 display: "block", 
                 marginBottom: "10px", 
@@ -862,204 +928,168 @@ export default function CrearMarca({ user }) {
                 color: "#333",
                 fontSize: "15px"
               }}>
-                Descripción del Producto
+                Precio del Producto *
               </label>
-              <textarea
-                value={p.description}
-                onChange={(e) => updateDescription(i, e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border: "1px solid #ccc",
-                  borderRadius: "6px",
-                  fontSize: "15px",
-                  minHeight: "80px",
-                  resize: "vertical",
-                  background: p.image ? "white" : "#f8f9fa",
-                  boxSizing: "border-box"
-                }}
-                placeholder="Descripción del producto..."
-                disabled={!p.image}
-              />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-              <div>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "10px", 
+              <div style={{ position: "relative" }}>
+                <span style={{
+                  position: "absolute",
+                  left: "15px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "#666",
                   fontWeight: "bold",
-                  color: "#333",
                   fontSize: "15px"
                 }}>
-                  Precio del Producto *
-                </label>
-                <div style={{ position: "relative" }}>
-                  <span style={{
-                    position: "absolute",
-                    left: "15px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#666",
-                    fontWeight: "bold",
-                    fontSize: "15px"
-                  }}>
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    value={p.price}
-                    onChange={(e) => updatePrice(i, e.target.value)}
-                    step="0.01"
-                    min="0"
-                    style={{
-                      width: "100%",
-                      padding: "12px 15px 12px 40px",
-                      border: "1px solid #ccc",
-                      borderRadius: "6px",
-                      fontSize: "15px",
-                      background: p.image ? "white" : "#f8f9fa",
-                      boxSizing: "border-box"
-                    }}
-                    placeholder="0.00"
-                    disabled={!p.image}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "10px", 
-                  fontWeight: "bold",
-                  color: "#333",
-                  fontSize: "15px"
-                }}>
-                  Cantidad Inicial *
-                </label>
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "12px",
-                  background: p.image ? "white" : "#f8f9fa",
-                  border: "1px solid #ccc",
-                  borderRadius: "6px",
-                  padding: "10px",
-                  opacity: p.image ? 1 : 0.6
-                }}>
-                  <button
-                    onClick={() => updateQuantity(i, p.quantity - 1)}
-                    disabled={!p.image}
-                    style={{
-                      background: "#6c757d",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      padding: "10px 14px",
-                      cursor: p.image ? "pointer" : "not-allowed",
-                      fontSize: "16px",
-                      fontWeight: "bold",
-                      minWidth: "45px"
-                    }}
-                  >
-                    -
-                  </button>
-                  
-                  <span style={{ 
-                    flex: 1,
-                    textAlign: "center",
-                    fontSize: "18px",
-                    fontWeight: "bold",
-                    color: p.quantity === 0 ? "#dc3545" : "#28a745"
-                  }}>
-                    {p.quantity}
-                  </span>
-                  
-                  <button
-                    onClick={() => updateQuantity(i, p.quantity + 1)}
-                    disabled={!p.image}
-                    style={{
-                      background: "#6c757d",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      padding: "10px 14px",
-                      cursor: p.image ? "pointer" : "not-allowed",
-                      fontSize: "16px",
-                      fontWeight: "bold",
-                      minWidth: "45px"
-                    }}
-                  >
-                    +
-                  </button>
-                </div>
+                  $
+                </span>
+                <input
+                  type="number"
+                  value={p.price}
+                  onChange={(e) => updatePrice(i, e.target.value)}
+                  step="0.01"
+                  min="0"
+                  style={{
+                    width: "100%",
+                    padding: "12px 15px 12px 40px",
+                    border: "1px solid #ccc",
+                    borderRadius: "6px",
+                    fontSize: "15px",
+                    background: "white",
+                    boxSizing: "border-box"
+                  }}
+                  placeholder="0.00"
+                />
               </div>
             </div>
 
-            {/* Date Section - Centered Checkbox Only */}
-            <div style={{ 
-              borderTop: "2px solid #e0e0e0", 
-              paddingTop: "20px",
-              marginTop: "20px"
-            }}>
+            <div>
+              <label style={{ 
+                display: "block", 
+                marginBottom: "10px", 
+                fontWeight: "bold",
+                color: "#333",
+                fontSize: "15px"
+              }}>
+                Cantidad Inicial *
+              </label>
               <div style={{ 
                 display: "flex", 
-                flexDirection: "column", 
-                alignItems: "center",
-                gap: "15px"
+                alignItems: "center", 
+                gap: "12px",
+                background: "white",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                padding: "10px"
               }}>
-                <label style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "10px",
-                  fontWeight: "bold",
-                  color: "#333",
-                  fontSize: "15px",
-                  cursor: "pointer"
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={p.fechaRecepcionHoy}
-                    onChange={(e) => updateFechaRecepcionHoy(i, e.target.checked)}
-                    style={{ transform: "scale(1.2)" }}
-                    disabled={!p.image}
-                  />
-                  <span style={{ opacity: p.image ? 1 : 0.6 }}>
-                    La fecha de recepción es hoy
-                  </span>
-                </label>
+                <button
+                  onClick={() => updateQuantity(i, p.quantity - 1)}
+                  style={{
+                    background: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    fontSize: "16px",
+                    fontWeight: "bold",
+                    minWidth: "45px"
+                  }}
+                >
+                  -
+                </button>
                 
-                {!p.fechaRecepcionHoy && (
-                  <div style={{ width: "100%", maxWidth: "250px" }}>
-                    <label style={{ 
-                      display: "block", 
-                      marginBottom: "8px", 
-                      fontWeight: "bold",
-                      color: "#333",
-                      fontSize: "14px",
-                      textAlign: "center"
-                    }}>
-                      Fecha de Recepción
-                    </label>
-                    <input
-                      type="date"
-                      value={p.fechaRecepcion}
-                      onChange={(e) => updateFechaRecepcion(i, e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #ccc",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        background: p.image ? "white" : "#f8f9fa",
-                        boxSizing: "border-box"
-                      }}
-                      disabled={!p.image}
-                    />
-                  </div>
-                )}
+                <span style={{ 
+                  flex: 1,
+                  textAlign: "center",
+                  fontSize: "18px",
+                  fontWeight: "bold",
+                  color: p.quantity === 0 ? "#dc3545" : "#28a745"
+                }}>
+                  {p.quantity}
+                </span>
+                
+                <button
+                  onClick={() => updateQuantity(i, p.quantity + 1)}
+                  style={{
+                    background: "#6c757d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    fontSize: "16px",
+                    fontWeight: "bold",
+                    minWidth: "45px"
+                  }}
+                >
+                  +
+                </button>
               </div>
             </div>
+          </div>
+
+          {/* Date Section */}
+          <div style={{ 
+            borderTop: "2px solid #e0e0e0", 
+            paddingTop: "20px",
+            marginTop: "20px"
+          }}>
+            <div style={{ 
+              display: "flex", 
+              flexDirection: "column", 
+              alignItems: "center",
+              gap: "15px"
+            }}>
+              <label style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "10px",
+                fontWeight: "bold",
+                color: "#333",
+                fontSize: "15px",
+                cursor: "pointer"
+              }}>
+                <input
+                  type="checkbox"
+                  checked={p.fechaRecepcionHoy}
+                  onChange={(e) => updateFechaRecepcionHoy(i, e.target.checked)}
+                  style={{ transform: "scale(1.2)" }}
+                />
+                <span>
+                  La fecha de recepción es hoy
+                </span>
+              </label>
+              
+              {!p.fechaRecepcionHoy && (
+                <div style={{ width: "100%", maxWidth: "250px" }}>
+                  <label style={{ 
+                    display: "block", 
+                    marginBottom: "8px", 
+                    fontWeight: "bold",
+                    color: "#333",
+                    fontSize: "14px",
+                    textAlign: "center"
+                  }}>
+                    Fecha de Recepción
+                  </label>
+                  <input
+                    type="date"
+                    value={p.fechaRecepcion}
+                    onChange={(e) => updateFechaRecepcion(i, e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      background: "white",
+                      boxSizing: "border-box"
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
           </div>
         ))}
 
