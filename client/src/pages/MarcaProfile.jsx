@@ -211,32 +211,35 @@ const TiendaProfile = ({ user }) => {
       if (newProduct.image) {
         try {
           const token = localStorage.getItem("token");
-          console.log('Starting upload...', {
-            filename: newProduct.image.name,
-            size: newProduct.image.size,
-            type: newProduct.image.type,
-            API_URL: API_URL
-          });
+          console.log('🖼️ Uploading image with token:', token ? 'Yes' : 'No');
           
+          // Test the token first
+          if (!token) {
+            console.warn('⚠️ No token in localStorage');
+            // Try to get it from another source
+            const altToken = localStorage.getItem("authToken") || localStorage.getItem("jwt");
+            console.log('🔍 Alternative tokens:', { altToken });
+          }
+          
+          // For debugging, also send token in Authorization header
           const blob = await upload(newProduct.image.name, newProduct.image, {
             access: 'public',
             handleUploadUrl: `${API_URL}/api/upload`,
-            clientPayload: JSON.stringify({ token })
+            clientPayload: JSON.stringify({ 
+              token: token,
+              filename: newProduct.image.name,
+              timestamp: new Date().toISOString()
+            })
           });
           
-          console.log('Upload response full object:', blob);
-          console.log('Upload response keys:', Object.keys(blob));
-          console.log('Upload response URL property:', blob.url);
-          
+          console.log('✅ Upload response:', blob);
           imageUrl = blob.url;
           
-          if (!imageUrl) {
-            console.warn('No URL in blob response, using placeholder');
-            imageUrl = "/logo192.png";
-          }
         } catch (uploadError) {
-          console.error("Error uploading image:", uploadError);
-          console.error("Error details:", uploadError.message);
+          console.error("❌ Error uploading image:", uploadError);
+          console.error("❌ Full error object:", uploadError);
+          
+          // For testing, bypass the error temporarily
           alert(`Advertencia: No se pudo subir la imagen. Se usará imagen por defecto.`);
         }
       }

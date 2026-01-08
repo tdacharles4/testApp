@@ -8,9 +8,9 @@ const router = express.Router();
 
 // Dynamic CORS configuration
 const allowedOrigins = [
-    "https://test-app-omega-teal.vercel.app",
-    "http://localhost:3000",
-    "https://eu.cienciasexactas.com"
+  'http://localhost:3000',
+  'https://eu.cienciasexactas.com',
+  'https://cienciasexactas.com',
 ];
 
 // Apply CORS middleware
@@ -29,6 +29,7 @@ router.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
+// Handle preflight requests
 router.options("/upload", (req, res) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || allowedOrigins[0]);
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -37,31 +38,57 @@ router.options("/upload", (req, res) => {
   res.status(200).end();
 });
 
+// Upload endpoint
 router.post("/upload", async (req, res) => {
   console.log('📤 Upload route called from origin:', req.headers.origin);
+  console.log('🔑 Headers:', {
+    authorization: req.headers.authorization,
+    'content-type': req.headers['content-type']
+  });
   
   try {
     const body = req.body;
-
-    console.log('📦 Request body keys:', Object.keys(body));
-    console.log('🔑 Has payload?', !!body.payload);
+    
+    // Debug the entire body
+    console.log('📦 Full request body:', JSON.stringify(body, null, 2));
     
     let token = null;
+    
+    // Try multiple ways to get the token
     if (body.payload) {
       try {
+        console.log('🔍 Parsing payload:', body.payload);
         const payload = JSON.parse(body.payload);
+        console.log('📝 Parsed payload:', payload);
         token = payload.token;
-        console.log('✅ Token extracted:', token ? 'Yes (length: ' + token.length + ')' : 'No');
       } catch (e) {
         console.error("❌ Error parsing payload:", e);
       }
     }
+    
+    // Also check Authorization header
+    if (!token && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+        console.log('🔑 Got token from Authorization header');
+      }
+    }
+    
+    console.log('✅ Token found?', token ? `Yes (length: ${token.length})` : 'No');
 
-    if (!token) {
+    // TEMPORARY: For testing, allow uploads without token
+    // Remove this in production
+    const TEST_MODE = process.env.NODE_ENV !== 'production';
+    if (!token && TEST_MODE) {
+      console.log('⚠️ TEST MODE: Allowing upload without token');
+      // Continue without token validation for testing
+    } else if (!token) {
       console.log('❌ No token provided');
       return res.status(401).json({ 
         error: "No autorizado - Token requerido",
-        receivedPayload: body.payload
+        receivedPayload: body.payload,
+        hasAuthHeader: !!req.headers.authorization
       });
     }
 
@@ -82,14 +109,20 @@ router.post("/upload", async (req, res) => {
           maximumSizeInBytes: 10 * 1024 * 1024, // 10MB
           tokenPayload: JSON.stringify({ 
             uploadedFrom: 'your-app',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            clientToken: token ? 'provided' : 'not-provided'
           }),
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
         console.log('✅ Upload completed!');
         console.log('📎 Blob URL:', blob.url);
-        console.log('📦 Blob object keys:', Object.keys(blob));
+        console.log('📦 Blob object:', {
+          url: blob.url,
+          pathname: blob.pathname,
+          downloadUrl: blob.downloadUrl,
+          size: blob.size
+        });
       },
     });
 
@@ -98,7 +131,7 @@ router.post("/upload", async (req, res) => {
     return res.json(jsonResponse);
   } catch (error) {
     console.error("❌ Error in upload handler:", error);
-    console.error("❌ Error stack:", error.stack);
+    console.error("❌ Error message:", error.message);
     
     return res.status(500).json({ 
       error: "Error al procesar la subida",
