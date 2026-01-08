@@ -122,6 +122,12 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
       });
     }
 
+    // Process contractValue - convert to number or set to 0
+    let processedContractValue = 0;
+    if (contractValue !== undefined && contractValue !== null && contractValue !== "") {
+      processedContractValue = parseFloat(contractValue) || 0;
+    }
+
     // Process products (if any)
     const processedProducts = Array.isArray(products) ? products.map((product, index) => ({
       clave: `${storeTag.toUpperCase()}-${product.clave || `PROD${(index + 1).toString().padStart(3, '0')}`}`,
@@ -139,8 +145,8 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
       name: storeName,
       tag: storeTag.toUpperCase(),
       description: storeDescription || "",
-      contractType: contractType || "",
-      contractValue: contractValue || "",
+      contractType: contractType,
+      contractValue: processedContractValue,
       contacto: contacto || "",
       banco: banco || "",
       numeroCuenta: numeroCuenta || "",
@@ -159,6 +165,11 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating marca:", error);
+    
+    // Log detailed validation errors
+    if (error.name === 'ValidationError') {
+      console.error("Validation errors:", error.errors);
+    }
     
     let errorMessage = "Error al crear la marca";
     let statusCode = 500;
