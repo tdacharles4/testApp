@@ -18,6 +18,7 @@ export default function Venta() {
   const [discountType, setDiscountType] = useState("percentage");
   const [discountValue, setDiscountValue] = useState("");
   const [multiplePayments, setMultiplePayments] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState({
     efectivo: { selected: false, amount: "" },
     tarjeta: { selected: false, amount: "" },
@@ -333,29 +334,11 @@ export default function Venta() {
       alert("El carrito está vacío");
       return;
     }
+    setShowConfirmationModal(true);
+  };
 
-    // Mostrar resumen
-    let summary = "🎫 RESUMEN DE VENTA\n\n";
-    cart.forEach((item, index) => {
-      summary += `${index + 1}. ${item.itemName} (${item.item})\n`;
-      summary += `   Precio: $${item.originalPrice?.toFixed(2)}\n`;
-      if (item.discountAmount > 0) {
-        summary += `   Descuento: -$${item.discountAmount?.toFixed(2)} (${item.discountPercentage}%)\n`;
-      }
-      summary += `   Total: $${item.amount?.toFixed(2)}\n`;
-      
-      // Métodos de pago
-      const methods = [];
-      if (item.amountEfectivo > 0) methods.push(`Efectivo: $${item.amountEfectivo?.toFixed(2)}`);
-      if (item.amountTarjeta > 0) methods.push(`Tarjeta: $${item.amountTarjeta?.toFixed(2)}`);
-      if (item.amountTransferencia > 0) methods.push(`Transferencia: $${item.amountTransferencia?.toFixed(2)}`);
-      summary += `   Pagos: ${methods.join(", ")}\n\n`;
-    });
-    summary += `💰 TOTAL: $${calculateTotal().toFixed(2)}\n`;
-    summary += `📦 Artículos: ${cart.length}`;
-
-    const confirmed = window.confirm(`${summary}\n\n¿Confirmar venta?`);
-    if (!confirmed) return;
+  const confirmSale = async () => {
+    setShowConfirmationModal(false);
 
     try {
       const results = [];
@@ -880,6 +863,96 @@ export default function Venta() {
 
       {/* Modal de venta */}
       {renderSaleModal()}
+
+      {showConfirmationModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.confirmationModal}>
+            <h2 style={styles.modalTitle}>🎫 Confirmar Venta</h2>
+            
+            <div style={styles.ticketContainer}>
+              <div style={styles.ticketHeader}>
+                <h3>RESUMEN DE VENTA</h3>
+                <p>Fecha: {new Date().toLocaleDateString("es-MX")}</p>
+                <p>Vendedor: {user?.name || user?.username}</p>
+              </div>
+              
+              <div style={styles.ticketItems}>
+                {cart.map((item, index) => (
+                  <div key={index} style={styles.ticketItem}>
+                    <div style={styles.ticketItemHeader}>
+                      <span style={styles.itemNumber}>{index + 1}.</span>
+                      <span style={styles.itemName}>{item.itemName}</span>
+                      <span style={styles.itemCode}>({item.item})</span>
+                    </div>
+                    
+                    <div style={styles.ticketDetails}>
+                      <div style={styles.detailRow}>
+                        <span>Precio:</span>
+                        <span>${item.originalPrice?.toFixed(2)}</span>
+                      </div>
+                      
+                      {item.discountAmount > 0 && (
+                        <div style={styles.discountRow}>
+                          <span>Descuento:</span>
+                          <span style={styles.discountText}>
+                            -${item.discountAmount?.toFixed(2)} ({item.discountPercentage}%)
+                          </span>
+                        </div>
+                      )}
+                      
+                      <div style={styles.detailRow}>
+                        <span>Total item:</span>
+                        <span style={styles.itemTotal}>${item.amount?.toFixed(2)}</span>
+                      </div>
+                      
+                      <div style={styles.paymentMethods}>
+                        <span>Pagos:</span>
+                        <div style={styles.methodsList}>
+                          {item.amountEfectivo > 0 && (
+                            <span style={styles.methodTag}>Efectivo: ${item.amountEfectivo?.toFixed(2)}</span>
+                          )}
+                          {item.amountTarjeta > 0 && (
+                            <span style={styles.methodTag}>Tarjeta: ${item.amountTarjeta?.toFixed(2)}</span>
+                          )}
+                          {item.amountTransferencia > 0 && (
+                            <span style={styles.methodTag}>Transferencia: ${item.amountTransferencia?.toFixed(2)}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div style={styles.ticketFooter}>
+                <div style={styles.totalRow}>
+                  <span>Artículos:</span>
+                  <span>{cart.length}</span>
+                </div>
+                <div style={styles.grandTotal}>
+                  <span>TOTAL:</span>
+                  <span style={styles.grandTotalAmount}>${calculateTotal().toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div style={styles.confirmationButtons}>
+              <button
+                onClick={confirmSale}
+                style={styles.confirmButton}
+              >
+                ✅ Confirmar Venta
+              </button>
+              <button
+                onClick={() => setShowConfirmationModal(false)}
+                style={styles.cancelButton}
+              >
+                ❌ Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1150,5 +1223,178 @@ const styles = {
     flex: 1, background: '#6c757d', color: 'white',
     border: 'none', borderRadius: '6px', padding: '1rem',
     cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem'
+  },
+
+    // Modal confirmacion ventas
+  confirmationModal: {
+    background: 'white',
+    borderRadius: '8px',
+    padding: '2rem',
+    width: '90%',
+    maxWidth: '600px',
+    maxHeight: '85vh',
+    overflowY: 'auto',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+  },
+
+  ticketContainer: {
+    border: '2px dashed #ccc',
+    borderRadius: '8px',
+    padding: '1.5rem',
+    margin: '1.5rem 0',
+    background: '#f9f9f9'
+  },
+
+  ticketHeader: {
+    textAlign: 'center',
+    borderBottom: '2px solid #007bff',
+    paddingBottom: '1rem',
+    marginBottom: '1rem'
+  },
+
+  ticketItems: {
+    maxHeight: '300px',
+    overflowY: 'auto',
+    marginBottom: '1rem'
+  },
+
+  ticketItem: {
+    background: 'white',
+    border: '1px solid #ddd',
+    borderRadius: '6px',
+    padding: '1rem',
+    marginBottom: '0.75rem'
+  },
+
+  ticketItemHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: '0.5rem',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '0.5rem'
+  },
+
+  itemNumber: {
+    fontWeight: 'bold',
+    marginRight: '0.5rem',
+    color: '#007bff'
+  },
+
+  itemName: {
+    fontWeight: 'bold',
+    flex: 1,
+    color: '#2c3e50'
+  },
+
+  itemCode: {
+    fontFamily: 'monospace',
+    color: '#7f8c8d',
+    fontSize: '0.9rem'
+  },
+
+  ticketDetails: {
+    paddingLeft: '1.5rem'
+  },
+
+  detailRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '0.25rem',
+    fontSize: '0.9rem'
+  },
+
+  discountRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '0.25rem',
+    fontSize: '0.9rem',
+    color: '#28a745'
+  },
+
+  discountText: {
+    fontWeight: 'bold'
+  },
+
+  itemTotal: {
+    fontWeight: 'bold',
+    color: '#2c3e50'
+  },
+
+  paymentMethods: {
+    marginTop: '0.5rem',
+    paddingTop: '0.5rem',
+    borderTop: '1px dashed #ddd'
+  },
+
+  methodsList: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '0.5rem',
+    marginTop: '0.25rem'
+  },
+
+  methodTag: {
+    background: '#e7f3ff',
+    color: '#0066cc',
+    fontSize: '0.8rem',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '4px'
+  },
+
+  ticketFooter: {
+    borderTop: '2px solid #007bff',
+    paddingTop: '1rem'
+  },
+
+  totalRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '0.5rem',
+    fontSize: '1rem'
+  },
+
+  grandTotal: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginTop: '1rem',
+    paddingTop: '1rem',
+    borderTop: '2px solid #28a745',
+    fontSize: '1.2rem',
+    fontWeight: 'bold'
+  },
+
+  grandTotalAmount: {
+    color: '#28a745',
+    fontSize: '1.4rem'
+  },
+
+  confirmationButtons: {
+    display: 'flex',
+    gap: '1rem',
+    marginTop: '1.5rem'
+  },
+
+  confirmButton: {
+    flex: 1,
+    background: '#28a745',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '1rem',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '1rem'
+  },
+
+  cancelButton: {
+    flex: 1,
+    background: '#dc3545',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '1rem',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '1rem'
   }
 };
