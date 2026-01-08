@@ -259,7 +259,7 @@ export default function Marcas({ user }) {
             <p style={{ fontSize: "18px", marginBottom: "20px" }}>No hay marcas registradas aún.</p>
             {user?.role === "admin" && (
               <button 
-                onClick={() => navigate("/crearTienda")}
+                onClick={() => navigate("/crearMarca")}
                 style={{
                   backgroundColor: "#28a745",
                   color: "white",

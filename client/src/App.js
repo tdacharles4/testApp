@@ -26,7 +26,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    document.title = "Portal Estetica Unisex";
+    document.title = "Estetica Unisex";
   }, []);
 
   // Check for existing user session on initial load

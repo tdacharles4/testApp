@@ -49,8 +49,8 @@ export default function MainPage({user}) {
 
         {user?.role === "admin" && (
           <>
-            <button className="main-btn" onClick={() => navigate("/crearTienda")}>
-              Crear Tienda
+            <button className="main-btn" onClick={() => navigate("/crearMarca")}>
+              Crear Marca
             </button>
 
             <button className="main-btn" onClick={() => navigate("/crearUsuario")}>
