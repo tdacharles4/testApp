@@ -22,29 +22,84 @@ const Inventario = ({ user }) => {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
   useEffect(() => {
-  fetch(`${API_URL}/api/tiendas`)
-    .then((res) => res.json())
-    .then((data) => {
-      // Don't set stores since we're not using it
-      // setStores(data);
-      
-      // Flatten all products from all stores
-      const products = data.flatMap(store => 
-        store.products?.map(product => ({
-          ...product,
-          storeName: store.name,
-          storeTag: store.tag,
-          storeId: store._id,
-          contractType: store.contractType,
-          contractValue: store.contractValue
-        })) || []
-      );
-      
-      setAllProducts(products);
-      setFilteredProducts(products);
-    })
-    .catch((err) => console.error(err));
-  }, []);
+    const fetchStores = async () => {
+      try {
+        console.log('🔍 Fetching from:', `${API_URL}/api/tiendas`);
+        
+        const response = await fetch(`${API_URL}/api/tiendas`);
+        console.log('📡 Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📦 Full API response:', data);
+        console.log('📊 Response type:', typeof data);
+        console.log('📊 Is array?', Array.isArray(data));
+        
+        // Try different response structures
+        let stores = [];
+        
+        if (Array.isArray(data)) {
+          // Direct array response
+          stores = data;
+        } else if (data.tiendas && Array.isArray(data.tiendas)) {
+          // Response with { tiendas: [...] }
+          stores = data.tiendas;
+        } else if (data.success && data.tiendas) {
+          // Response with { success: true, tiendas: [...] }
+          stores = data.tiendas;
+        } else if (data.success && data.stores) {
+          // Response with { success: true, stores: [...] }
+          stores = data.stores;
+        } else {
+          // Try to use whatever was returned
+          stores = data;
+        }
+        
+        console.log('🏪 Processed stores:', stores);
+        console.log('🏪 Stores count:', stores.length);
+        console.log('🏪 First store:', stores[0]);
+        
+        if (!Array.isArray(stores)) {
+          console.error('❌ Stores is not an array:', stores);
+          return;
+        }
+        
+        // Flatten all products from all stores
+        const products = stores.flatMap(store => {
+          if (!store || !store.products) {
+            console.warn('⚠️ Store without products:', store);
+            return [];
+          }
+          
+          return store.products.map(product => ({
+            ...product,
+            storeName: store.name || 'Unknown Store',
+            storeTag: store.tag || 'N/A',
+            storeId: store._id || 'unknown',
+            contractType: store.contractType || 'Unknown',
+            contractValue: store.contractValue || 0
+          }));
+        });
+        
+        console.log('📊 Total products found:', products.length);
+        console.log('📊 Sample product:', products[0]);
+        
+        setAllProducts(products);
+        setFilteredProducts(products);
+        
+      } catch (err) {
+        console.error("❌ Error fetching stores:", err);
+        // Show error in UI
+        setAllProducts([]);
+        setFilteredProducts([]);
+      }
+    };
+
+    fetchStores();
+  }, [API_URL]);
 
   useEffect(() => {
     let filtered = allProducts.filter(product =>
