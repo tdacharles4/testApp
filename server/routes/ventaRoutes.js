@@ -22,21 +22,25 @@ const generateSaleId = async () => {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
   const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const datePrefix = `${year}${month}`;
   
-  // Buscar la última venta del mes actual
-  const lastSale = await Venta.findOne({
-    saleId: { $regex: `^${datePrefix}` }
-  }).sort({ saleId: -1 }).limit(1);
+  // Buscar la última venta (sin filtrar por mes, para mayor seguridad)
+  const lastSale = await Venta.findOne().sort({ createdAt: -1 }).limit(1);
   
   let sequenceNumber = 1;
   if (lastSale && lastSale.saleId) {
-    // Extraer el número de secuencia del saleId existente
-    const lastSequence = parseInt(lastSale.saleId.slice(-4));
-    sequenceNumber = lastSequence + 1;
+    // Extraer la parte numérica del saleId
+    const match = lastSale.saleId.match(/\d{6}(\d{4})$/);
+    if (match) {
+      const lastSequence = parseInt(match[1]);
+      sequenceNumber = lastSequence + 1;
+    } else {
+      // Si no hay formato válido, contar todas las ventas
+      const totalSales = await Venta.countDocuments();
+      sequenceNumber = totalSales + 1;
+    }
   }
   
-  return `${datePrefix}${sequenceNumber.toString().padStart(4, '0')}`;
+  return `${year}${month}${sequenceNumber.toString().padStart(4, '0')}`;
 };
 
 // Get current stock for a specific product in a store
@@ -247,8 +251,8 @@ router.post("/crear", requireAuth, async (req, res) => {
       amountTarjeta, 
       amountTransferencia,
       storeContractType,
-      storeContractValue,
-      saleId: providedSaleId // Opcional: saleId proporcionado por el frontend
+      storeContractValue
+      // NO recibir saleId desde el frontend
     } = req.body;
 
     // Find the store and product
@@ -273,16 +277,11 @@ router.post("/crear", requireAuth, async (req, res) => {
       return res.status(400).json({ message: "No hay suficiente stock para este producto" });
     }
 
-    // Generar saleId (usar el proporcionado o generar uno nuevo)
-    let saleId;
-    if (providedSaleId) {
-      saleId = providedSaleId;
-    } else {
-      saleId = await generateSaleId();
-    }
+    // Generar saleId ÚNICO para esta venta individual
+    const saleId = await generateSaleId();
 
     const venta = new Venta({
-      saleId,
+      saleId, // SaleId único por venta
       store: {
         tag: currentStore.tag,
         name: currentStore.name
@@ -303,7 +302,8 @@ router.post("/crear", requireAuth, async (req, res) => {
       amountTransferencia: amountTransferencia || 0,
       storeContractType: storeContractType || currentStore.contractType,
       storeContractValue: storeContractValue || currentStore.contractValue || 0,
-      date: date || new Date().toLocaleDateString("es-MX")
+      date: date || new Date().toLocaleDateString("es-MX"),
+      createdAt: new Date() // Añadir timestamp para ordenación
     });
 
     await venta.save({ session });
@@ -334,116 +334,19 @@ router.post("/crear", requireAuth, async (req, res) => {
     await session.abortTransaction();
     session.endSession();
     console.error("Error creating sale:", error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-//Ventas lote
-router.post("/crear-lote", requireAuth, async (req, res) => {
-  const session = await Venta.startSession();
-  session.startTransaction();
-  
-  try {
-    const ventasData = req.body; // Array de ventas
-    const saleId = await generateSaleId(); // Un solo saleId para todo el lote
-    const resultados = [];
     
-    for (const ventaData of ventasData) {
-      const { 
-        store, 
-        item, 
-        amount, 
-        originalPrice, 
-        discountAmount, 
-        discountPercentage, 
-        discountType, 
-        date, 
-        amountEfectivo, 
-        amountTarjeta, 
-        amountTransferencia,
-        storeContractType,
-        storeContractValue
-      } = ventaData;
-
-      // Find the store and product
-      const currentStore = await Tienda.findOne({ tag: store });
-      if (!currentStore) {
-        throw new Error(`Marca ${store} no encontrada`);
-      }
-      
-      const currentItem = currentStore.products.find(p => p.clave === item);
-      if (!currentItem) {
-        throw new Error(`Producto ${item} no encontrado`);
-      }
-
-      // Check if product has sufficient stock
-      if (currentItem.quantity <= 0) {
-        throw new Error(`No hay suficiente stock para ${currentItem.name}`);
-      }
-
-      const venta = new Venta({
-        saleId, // Mismo saleId para todas las ventas del lote
-        store: {
-          tag: currentStore.tag,
-          name: currentStore.name
-        },
-        item: {
-          clave: currentItem.clave,
-          name: currentItem.name,
-          price: currentItem.price
-        },
-        user: req.user._id,
-        amount,
-        originalPrice: originalPrice || amount,
-        discountAmount: discountAmount || 0,
-        discountPercentage: discountPercentage || 0,
-        discountType: discountType || "none",
-        amountEfectivo: amountEfectivo || 0,
-        amountTarjeta: amountTarjeta || 0,
-        amountTransferencia: amountTransferencia || 0,
-        storeContractType: storeContractType || currentStore.contractType,
-        storeContractValue: storeContractValue || currentStore.contractValue || 0,
-        date: date || new Date().toLocaleDateString("es-MX")
+    // Manejo específico de error de duplicado
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.saleId) {
+      return res.status(409).json({ 
+        message: "Error de duplicado en saleId. Por favor, intente nuevamente.",
+        retry: true
       });
-
-      await venta.save({ session });
-
-      // Update product quantity in the store (reduce by 1)
-      await Tienda.findOneAndUpdate(
-        { 
-          "tag": store,
-          "products.clave": item 
-        },
-        { 
-          $inc: { "products.$.quantity": -1 } 
-        },
-        { session }
-      );
-
-      resultados.push(venta);
     }
-
-    await session.commitTransaction();
-    session.endSession();
-
-    // Popular usuario en los resultados
-    await Promise.all(
-      resultados.map(v => v.populate("user", "name username email"))
-    );
     
-    res.status(201).json({
-      success: true,
-      ventas: resultados,
-      saleId, // Devolver el saleId generado
-      message: `${resultados.length} ventas registradas exitosamente con saleId: ${saleId}`
-    });
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error("Error creating batch sales:", error);
     res.status(500).json({ message: error.message });
   }
 });
+
 
 // Delete sale
 router.delete("/:id", requireAuth, async (req, res) => {

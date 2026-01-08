@@ -341,40 +341,85 @@ export default function Venta() {
     setShowConfirmationModal(false);
 
     try {
-      // Generar un saleId único para todo el carrito
-      const saleIdResponse = await fetch(`${API_URL}/api/ventas/generar-saleid`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
+      const results = [];
+      const errors = [];
+      
+      // Procesar cada venta individualmente
+      for (const [index, sale] of cart.entries()) {
+        try {
+          const response = await fetch(`${API_URL}/api/ventas/crear`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${localStorage.getItem("token")}`
+            },
+            body: JSON.stringify({
+              store: sale.store,
+              item: sale.item,
+              amount: sale.amount,
+              originalPrice: sale.originalPrice,
+              discountAmount: sale.discountAmount,
+              discountPercentage: sale.discountPercentage,
+              discountType: sale.discountType,
+              date: sale.date,
+              user: sale.user,
+              amountEfectivo: sale.amountEfectivo,
+              amountTarjeta: sale.amountTarjeta,
+              amountTransferencia: sale.amountTransferencia,
+              storeContractType: sale.storeContractType,
+              storeContractValue: sale.storeContractValue
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            
+            // Si es error de duplicado, reintentar una vez
+            if (error.retry) {
+              console.log(`Reintentando venta ${index + 1}...`);
+              // Pequeña pausa y reintentar
+              await new Promise(resolve => setTimeout(resolve, 200));
+              const retryResponse = await fetch(`${API_URL}/api/ventas/crear`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${localStorage.getItem("token")}`
+                },
+                body: JSON.stringify(sale),
+              });
+              
+              if (!retryResponse.ok) {
+                const retryError = await retryResponse.json();
+                errors.push(`Venta ${index + 1} (${sale.itemName}): ${retryError.message}`);
+                continue;
+              }
+              
+              const retryResult = await retryResponse.json();
+              results.push(retryResult);
+              continue;
+            }
+            
+            errors.push(`Venta ${index + 1} (${sale.itemName}): ${error.message}`);
+            continue;
+          }
+
+          const result = await response.json();
+          results.push(result);
+
+          // Pequeña pausa para evitar colisiones
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+        } catch (error) {
+          errors.push(`Venta ${index + 1} (${sale.itemName}): ${error.message}`);
         }
-      });
-      
-      if (!saleIdResponse.ok) {
-        throw new Error("Error generando saleId");
-      }
-      
-      const { saleId } = await saleIdResponse.json();
-
-      // Enviar todas las ventas en un solo lote
-      const response = await fetch(`${API_URL}/api/ventas/crear-lote`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(cart.map(sale => ({
-          ...sale,
-          saleId // Asignar el mismo saleId a todas
-        })))
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Error al procesar ventas");
       }
 
-      const result = await response.json();
-      alert(`✅ ${result.ventas.length} ventas registradas exitosamente con saleId: ${result.saleId}`);
+      // Mostrar resultados
+      if (errors.length > 0) {
+        alert(`⚠️ Se completaron ${results.length} ventas, pero hubo ${errors.length} errores:\n\n${errors.join("\n")}`);
+      } else {
+        alert(`✅ ${results.length} ventas registradas exitosamente`);
+      }
 
       // Limpiar y resetear
       setCart([]);
