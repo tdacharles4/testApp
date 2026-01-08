@@ -32,45 +32,117 @@ export default function CrearMarca({ user }) {
       fechaRecepcion: new Date().toISOString().split('T')[0]
     }
   ]);
-
-  // Generate store tag automatically based on store name
+  
+  // Generate store tag automatically based on store name with uniqueness check
   useEffect(() => {
-    if (!storeName.trim()) {
-      setStoreTag("");
-      return;
-    }
+    const generateTag = async () => {
+      const uniqueTag = await generateUniqueTag(storeName);
+      setStoreTag(uniqueTag);
+    };
+    
+    // Debounce the tag generation to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      generateTag();
+    }, 500); // Wait 500ms after user stops typing
+    
+    return () => clearTimeout(timeoutId);
+  }, [storeName]);
 
-    const name = storeName.trim();
-    const words = name.split(/\s+/).filter(word => word.length > 0);
+  // Check if tag exists in database
+const checkTagExists = async (tag) => {
+  if (!tag || tag.length !== 4) return false;
+  
+  try {
+    const token = localStorage.getItem("token");
+    const response = await fetch(`${API_URL}/api/tiendas`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
     
-    let generatedTag = "";
+    if (!response.ok) return false;
     
-    if (words.length === 1) {
-      // Single word: take first 4 letters
-      generatedTag = words[0].substring(0, 4).toUpperCase();
+    const data = await response.json();
+    const tiendas = data.tiendas || [];
+    
+    return tiendas.some(tienda => tienda.tag === tag.toUpperCase());
+  } catch (error) {
+    console.error("Error checking tag:", error);
+    return false;
+  }
+};
+
+// Generate unique tag
+const generateUniqueTag = async (name) => {
+  if (!name.trim()) return "";
+
+  const words = name.trim().split(/\s+/).filter(word => word.length > 0);
+  let baseTag = "";
+  
+  if (words.length === 1) {
+    // Single word: take first 4 letters
+    baseTag = words[0].substring(0, 4).toUpperCase();
+  } else {
+    // Multiple words: take first letter of each word
+    const initials = words.map(word => word[0].toUpperCase()).join('');
+    
+    if (initials.length >= 4) {
+      // If we have 4 or more initials, take first 4
+      baseTag = initials.substring(0, 4);
     } else {
-      // Multiple words: take first letter of each word
-      const initials = words.map(word => word[0].toUpperCase()).join('');
+      // If less than 4 initials, take remaining letters from last word
+      const remainingChars = 4 - initials.length;
+      const lastWord = words[words.length - 1];
+      const additionalChars = lastWord.substring(1, 1 + remainingChars).toUpperCase();
+      baseTag = initials + additionalChars;
       
-      if (initials.length >= 4) {
-        // If we have 4 or more initials, take first 4
-        generatedTag = initials.substring(0, 4);
-      } else {
-        // If less than 4 initials, take remaining letters from last word
-        const remainingChars = 4 - initials.length;
-        const lastWord = words[words.length - 1];
-        const additionalChars = lastWord.substring(1, 1 + remainingChars).toUpperCase();
-        generatedTag = initials + additionalChars;
-        
-        // If still not enough characters, pad with X
-        if (generatedTag.length < 4) {
-          generatedTag = generatedTag.padEnd(4, 'X');
-        }
+      // If still not enough characters, pad with X
+      if (baseTag.length < 4) {
+        baseTag = baseTag.padEnd(4, 'X');
       }
     }
-    
-    setStoreTag(generatedTag);
-  }, [storeName]);
+  }
+  
+  // Check if base tag exists
+  const exists = await checkTagExists(baseTag);
+  if (!exists) {
+    return baseTag;
+  }
+  
+  // If exists, try variations
+  // Strategy 1: Replace last char with numbers 2-9
+  for (let i = 2; i <= 9; i++) {
+    const variant = baseTag.substring(0, 3) + i;
+    const variantExists = await checkTagExists(variant);
+    if (!variantExists) {
+      return variant;
+    }
+  }
+  
+  // Strategy 2: Replace last 2 chars with numbers 10-99
+  for (let i = 10; i <= 99; i++) {
+    const variant = baseTag.substring(0, 2) + i;
+    const variantExists = await checkTagExists(variant);
+    if (!variantExists) {
+      return variant;
+    }
+  }
+  
+  // Fallback: use random characters (should rarely happen)
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  for (let attempt = 0; attempt < 100; attempt++) {
+    let randomTag = baseTag.substring(0, 2);
+    for (let i = 0; i < 2; i++) {
+      randomTag += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const randomExists = await checkTagExists(randomTag);
+    if (!randomExists) {
+      return randomTag;
+    }
+  }
+  
+  return baseTag; // Ultimate fallback
+};
 
   const addProduct = () => {
     if (products.length >= 10) return;
