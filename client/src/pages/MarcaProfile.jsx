@@ -160,15 +160,15 @@ const TiendaProfile = ({ user }) => {
       });
 
       if (response.ok) {
-        alert("Tienda eliminada exitosamente");
+        alert("Marca eliminada exitosamente");
         navigate("/inventario");
       } else {
-        console.error("Error eliminando tienda");
-        alert("Error al eliminar la tienda");
+        console.error("Error eliminando marca");
+        alert("Error al eliminar la marca");
       }
     } catch (error) {
-      console.error("Error eliminando tienda:", error);
-      alert("Error al eliminar la tienda");
+      console.error("Error eliminando marca:", error);
+      alert("Error al eliminar la marca");
     }
   };
 
@@ -224,12 +224,12 @@ const TiendaProfile = ({ user }) => {
   const handleEditStore = async () => {
     try {
       if (!editStoreData.storeName.trim() || !editStoreData.storeTag.trim()) {
-        alert("Por favor completa el nombre y clave de la tienda");
+        alert("Por favor completa el nombre y clave de la marca");
         return;
       }
 
       if (editStoreData.storeTag.length !== 4) {
-        alert("La clave de tienda debe tener exactamente 4 caracteres");
+        alert("La clave de marca debe tener exactamente 4 caracteres");
         return;
       }
 
@@ -299,14 +299,14 @@ const TiendaProfile = ({ user }) => {
         const updatedStore = await response.json();
         setStore(updatedStore);
         setShowEditStore(false);
-        alert("Tienda actualizada exitosamente");
+        alert("Marca actualizada exitosamente");
       } else {
-        console.error("Error actualizando tienda");
-        alert("Error al actualizar la tienda");
+        console.error("Error actualizando marca");
+        alert("Error al actualizar la marca");
       }
     } catch (error) {
-      console.error("Error actualizando tienda:", error);
-      alert("Error al actualizar la tienda");
+      console.error("Error actualizando marca:", error);
+      alert("Error al actualizar la marca");
     }
   };
 
@@ -391,7 +391,7 @@ const TiendaProfile = ({ user }) => {
 
   if (loading) return (
     <div style={{ padding: "20px", textAlign: "center" }}>
-      <div>Cargando tienda...</div>
+      <div>Cargando marca...</div>
     </div>
   );
 
@@ -403,7 +403,7 @@ const TiendaProfile = ({ user }) => {
       >
         ← Volver
       </button>
-      <div>Tienda no encontrada</div>
+      <div>Marca no encontrada</div>
     </div>
   );
 
@@ -456,7 +456,7 @@ const TiendaProfile = ({ user }) => {
                     fontWeight: "bold"
                   }}
                 >
-                  Editar Tienda
+                  Editar Marca
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
@@ -471,7 +471,7 @@ const TiendaProfile = ({ user }) => {
                     fontWeight: "bold"
                   }}
                 >
-                  Eliminar Tienda
+                  Eliminar Marca
                 </button>
               </div>
             )}
@@ -521,7 +521,7 @@ const TiendaProfile = ({ user }) => {
           borderBottom: "1px solid #ddd"
         }}>
           <h2 style={{ margin: 0, color: "#333" }}>
-            Inventario de la Tienda
+            Inventario de la Marca
           </h2>
           {user?.role === "admin" && (
             <button
@@ -666,7 +666,7 @@ const TiendaProfile = ({ user }) => {
           </div>
         ) : (
           <div style={{ padding: "40px", textAlign: "center", color: "#666" }}>
-            No hay productos en esta tienda.
+            No hay productos en esta marca.
             {user?.role === "admin" && (
               <div style={{ marginTop: "15px" }}>
                 <button
@@ -720,7 +720,7 @@ const TiendaProfile = ({ user }) => {
               fontSize: "24px",
               textAlign: "center"
             }}>
-              Editar Tienda
+              Editar Marca
             </h2>
 
             {/* Store Information Card */}
@@ -738,7 +738,7 @@ const TiendaProfile = ({ user }) => {
                 borderBottom: "2px solid #f0f0f0",
                 paddingBottom: "10px"
               }}>
-                Información de la Tienda
+                Información de la Marca
               </h3>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -749,7 +749,7 @@ const TiendaProfile = ({ user }) => {
                     fontWeight: "bold",
                     color: "#333"
                   }}>
-                    Nombre de Tienda *
+                    Nombre de Marca *
                   </label>
                   <input
                     type="text"
@@ -762,7 +762,7 @@ const TiendaProfile = ({ user }) => {
                       borderRadius: "6px",
                       fontSize: "16px"
                     }}
-                    placeholder="Ej: Tienda Centro"
+                    placeholder="Ej: Marca Centro"
                   />
                 </div>
 
@@ -773,7 +773,7 @@ const TiendaProfile = ({ user }) => {
                     fontWeight: "bold",
                     color: "#333"
                   }}>
-                    Clave Única de Tienda * (4 caracteres)
+                    Clave Única de Marca * (4 caracteres)
                   </label>
                   <input
                     type="text"
@@ -937,7 +937,7 @@ const TiendaProfile = ({ user }) => {
                       minHeight: "80px",
                       resize: "vertical"
                     }}
-                    placeholder="Descripción opcional de la tienda..."
+                    placeholder="Descripción opcional de la marca..."
                     maxLength="500"
                   />
                 </div>
@@ -1969,7 +1969,7 @@ const TiendaProfile = ({ user }) => {
               marginBottom: "20px"
             }}>
               <p style={{ margin: 0, color: "#856404", textAlign: "center" }}>
-                <strong>¿Estás seguro de que quieres eliminar la tienda "{store.name}"?</strong>
+                <strong>¿Estás seguro de que quieres eliminar la marca "{store.name}"?</strong>
               </p>
               <p style={{ margin: "10px 0 0 0", color: "#856404", fontSize: "14px", textAlign: "center" }}>
                 Esta acción no se puede deshacer y se eliminarán todos los productos asociados.

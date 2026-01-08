@@ -32,7 +32,7 @@ const createStore = async (req, res) => {
     // Prevent duplicate store
     const exists = await Tienda.findOne({ tag: normalizedTag });
     if (exists) {
-      return res.status(400).json({ error: "Ese tag de tienda ya existe" });
+      return res.status(400).json({ error: "Ese tag de marca ya existe" });
     }
 
     const products = [];
@@ -89,7 +89,7 @@ const createStore = async (req, res) => {
 
     const tienda = await Tienda.create(storeData);
 
-    res.json({ message: "Tienda creada", tienda });
+    res.json({ message: "Marca creada", tienda });
 
   } catch (err) {
     console.error("Error creating store:", err);

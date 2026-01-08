@@ -820,8 +820,8 @@ export default function Dashboard({ user }) {
                         width: "100%"
                       }}
                     >
-                      <span>🏪 Tienda</span>
-                      <span>{showFilter.store ? "▲" : "▼"}}</span>
+                      <span>🏪 Marca</span>
+                      <span>{showFilter.store ? "▲" : "▼"}</span>
                     </button>
                     {showFilter.store && (
                       <div style={{

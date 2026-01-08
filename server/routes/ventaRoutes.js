@@ -50,7 +50,7 @@ router.get("/stock/:storeTag/:productClave", async (req, res) => {
     const store = await Tienda.findOne({ tag: storeTag });
     
     if (!store) {
-      return res.status(404).json({ message: "Tienda no encontrada" });
+      return res.status(404).json({ message: "Marca no encontrada" });
     }
     
     const product = store.products.find(p => p.clave === productClave);
@@ -80,7 +80,7 @@ router.get("/stock/:storeTag", async (req, res) => {
     const store = await Tienda.findOne({ tag: storeTag });
     
     if (!store) {
-      return res.status(404).json({ message: "Tienda no encontrada" });
+      return res.status(404).json({ message: "Marca no encontrada" });
     }
     
     res.json({
@@ -201,7 +201,7 @@ router.put("/stock/update", requireAuth, async (req, res) => {
     );
     
     if (!result) {
-      return res.status(404).json({ message: "Producto o tienda no encontrados" });
+      return res.status(404).json({ message: "Producto o marca no encontrados" });
     }
     
     const updatedProduct = result.products.find(p => p.clave === productClave);
@@ -243,7 +243,7 @@ router.post("/crear", requireAuth, async (req, res) => {
     // Find the store and product
     const currentStore = await Tienda.findOne({ tag: store });
     if (!currentStore) {
-      return res.status(404).json({ message: "Tienda no encontrada" });
+      return res.status(404).json({ message: "Marca no encontrada" });
     }
     
     const currentItem = currentStore.products.find(p => p.clave === item);

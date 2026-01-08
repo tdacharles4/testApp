@@ -107,7 +107,7 @@ export default function Marcas({ user }) {
             </button>
             {user?.role === "admin" && (
               <button 
-                onClick={() => navigate("/crearTienda")}
+                onClick={() => navigate("/crearMarca")}
                 style={{
                   background: "#28a745",
                   color: "white",

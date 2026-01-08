@@ -467,7 +467,7 @@ const Inventario = ({ user }) => {
           Inventario General
         </h1>
         <p style={{ color: "#666", margin: 0, fontSize: "14px" }}>
-          Vista global de todos los productos en todas las tiendas
+          Vista global de todos los productos en todas las marcas
         </p>
       </div>
 
@@ -486,7 +486,7 @@ const Inventario = ({ user }) => {
           </span>
           <input
             type="text"
-            placeholder="Buscar por producto, clave o tienda..."
+            placeholder="Buscar por producto, clave o marca..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -673,7 +673,7 @@ const Inventario = ({ user }) => {
               </div>
 
               <div style={{ marginBottom: "12px" }}>
-                <strong style={{ color: "#333", fontSize: "13px" }}>Tienda:</strong>
+                <strong style={{ color: "#333", fontSize: "13px" }}>Marca:</strong>
                 <p 
                   style={{
                     margin: "4px 0 0 0",
@@ -960,7 +960,7 @@ const Inventario = ({ user }) => {
                 textAlign: "center"
               }}>
                 <h3 style={{ margin: "0 0 6px 0", color: "#333", fontSize: "12px" }}>
-                  Total Tiendas
+                  Total Marcas
                 </h3>
                 <div style={{ fontSize: "18px", fontWeight: "bold", color: "#6f42c1" }}>
                   {new Set(filteredProducts.map(p => p.storeId)).size}

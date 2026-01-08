@@ -270,7 +270,7 @@ export default function Entrada() {
     const foundStore = stores.find(s => s.tag === selectedStore);
     
     if (!foundItem || !foundStore) {
-      alert("Error: No se pudo encontrar la información del producto o tienda");
+      alert("Error: No se pudo encontrar la información del producto o marca");
       return;
     }
 
@@ -899,7 +899,7 @@ export default function Entrada() {
                 justifyContent: "space-between",
                 marginBottom: "10px"
               }}>
-                <strong>Tienda:</strong>
+                <strong>Marca:</strong>
                 <span>{selectedStore}</span>
               </div>
               <div style={{ 

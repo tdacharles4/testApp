@@ -8,8 +8,8 @@ import Entrada from "./pages/Entrada.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Historial from "./pages/Historial.jsx";
 import Inventario from "./pages/Inventario.jsx";
-import CrearTienda from "./pages/CrearTienda.jsx";
-import TiendaProfile from "./pages/TiendaProfile.jsx";
+import CrearMarca from "./pages/CrearMarca.jsx";
+import MarcaProfile from "./pages/MarcaProfile.jsx";
 import Salida from "./pages/Salida.jsx";
 import Marcas from "./pages/Marcas.jsx";
 import CrearUsuario from "./pages/CrearUsuario.jsx";
@@ -168,11 +168,11 @@ function App() {
               />
 
               <Route
-                path="/crearTienda"
+                path="/crearMarca"
                 element={
                   user ? (
                     <RequireAdmin user={user}>
-                      <CrearTienda user={user} />
+                      <CrearMarca user={user} />
                     </RequireAdmin>
                   ) : (
                     <Navigate to="/login" replace />
@@ -196,7 +196,7 @@ function App() {
               <Route
                 path="/:storeName"
                 element={
-                  user ? <TiendaProfile user={user} /> : <Navigate to="/login" replace />
+                  user ? <MarcaProfile user={user} /> : <Navigate to="/login" replace />
                 }
               />
             </Routes>

@@ -39,8 +39,8 @@ const CrearUsuario = ({ user }) => {
         const response = await axios.get('http://localhost:5000/api/tiendas');
         setTiendas(response.data);
       } catch (err) {
-        console.error('Error fetching tiendas:', err);
-        setError('Error al cargar las tiendas/marcas');
+        console.error('Error fetching marcas:', err);
+        setError('Error al cargar las marcas');
       }
     };
     
@@ -124,7 +124,7 @@ const CrearUsuario = ({ user }) => {
       }
 
       if (formData.ligarTienda && !formData.tiendaId) {
-        throw new Error('Debe seleccionar una tienda/marca');
+        throw new Error('Debe seleccionar una marca');
       }
 
       const userData = {
@@ -608,7 +608,7 @@ const CrearUsuario = ({ user }) => {
                       onChange={handleInputChange}
                       style={radioInputStyles}
                     />
-                    <span>Tienda</span>
+                    <span>Marca</span>
                   </label>
                   
                   <label style={radioLabelStyles}>
@@ -650,12 +650,12 @@ const CrearUsuario = ({ user }) => {
                     onChange={handleInputChange}
                     style={checkboxInputStyles}
                   />
-                  <span>Tienda</span>
+                  <span>Marca</span>
                 </label>
               </div>
             </div>
 
-            {/* Tienda/Marca Link */}
+            {/* Marca Link */}
             <div style={sectionStyles}>
               <h3 style={sectionTitleStyles}>Vincular a Marca</h3>
               
@@ -784,7 +784,7 @@ const CrearUsuario = ({ user }) => {
                           borderRadius: '4px',
                           fontSize: '0.85rem',
                         }}>
-                          {userItem.role === 'admin' ? 'Administrador' : 'Tienda'}
+                          {userItem.role === 'admin' ? 'Administrador' : 'Marca'}
                         </span>
                       </td>
                       <td style={tdStyles}>

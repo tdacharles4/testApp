@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-export default function CrearTienda({ user }) {
+export default function CrearMarca({ user }) {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
   const [storeName, setStoreName] = useState("");
   const [storeTag, setStoreTag] = useState("");
@@ -148,12 +148,12 @@ export default function CrearTienda({ user }) {
     try {
       // Basic validation
       if (!storeName.trim() || !storeTag.trim()) {
-        alert("Por favor completa el nombre de la tienda");
+        alert("Por favor completa el nombre de la marca");
         return;
       }
 
       if (storeTag.length !== 4) {
-        alert("La clave de tienda debe tener exactamente 4 caracteres");
+        alert("La clave de marca debe tener exactamente 4 caracteres");
         return;
       }
 
@@ -237,7 +237,7 @@ export default function CrearTienda({ user }) {
         }
       );
 
-      alert("Tienda creada exitosamente");
+      alert("Marca creada exitosamente");
       
       // Reset all form states instead of reloading
       setStoreName("");
@@ -267,7 +267,7 @@ export default function CrearTienda({ user }) {
       
     } catch (err) {
       console.error(err);
-      alert("Error al crear tienda: " + (err.response?.data?.message || err.message));
+      alert("Error al crear marca: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -281,10 +281,10 @@ export default function CrearTienda({ user }) {
           fontSize: "28px",
           fontWeight: "bold"
         }}>
-          Crear Nueva Tienda
+          Crear Nueva Marca
         </h1>
         <p style={{ color: "#666", margin: 0 }}>
-          Completa la información de la tienda y añade sus productos
+          Completa la información de la marca y añade sus productos
         </p>
       </div>
 
@@ -304,7 +304,7 @@ export default function CrearTienda({ user }) {
           borderBottom: "2px solid #f0f0f0",
           paddingBottom: "15px"
         }}>
-          Información de la Tienda
+          Información de la Marca
         </h2>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
@@ -316,7 +316,7 @@ export default function CrearTienda({ user }) {
               color: "#333",
               fontSize: "15px"
             }}>
-              Nombre de Tienda *
+              Nombre de Marca *
             </label>
             <input
               type="text"
@@ -330,7 +330,7 @@ export default function CrearTienda({ user }) {
                 fontSize: "16px",
                 boxSizing: "border-box"
               }}
-              placeholder="Ej: Tienda Centro"
+              placeholder="Ej: Marca Centro"
             />
           </div>
 
@@ -342,7 +342,7 @@ export default function CrearTienda({ user }) {
               color: "#333",
               fontSize: "15px"
             }}>
-              Clave Única de Tienda *
+              Clave Única de Marca *
             </label>
             <div style={{
               padding: "14px",
@@ -358,7 +358,7 @@ export default function CrearTienda({ user }) {
               alignItems: "center",
               justifyContent: "center"
             }}>
-              {storeTag || "Ingresa el nombre de la tienda"}
+              {storeTag || "Ingresa el nombre de la marca"}
             </div>
             <p style={{ margin: "10px 0 0 0", color: "#666", fontSize: "14px" }}>
               Clave generada automáticamente (4 caracteres)
@@ -526,7 +526,7 @@ export default function CrearTienda({ user }) {
                 resize: "vertical",
                 boxSizing: "border-box"
               }}
-              placeholder="Descripción opcional de la tienda..."
+              placeholder="Descripción opcional de la marca..."
               maxLength="500"
             />
           </div>
@@ -1103,7 +1103,7 @@ export default function CrearTienda({ user }) {
           }}
           onClick={submitStore}
         >
-          Guardar Tienda
+          Guardar Marca
         </button>
       </div>
     </div>

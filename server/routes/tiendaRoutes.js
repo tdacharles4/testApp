@@ -12,7 +12,7 @@ const ensureDB = async (req, res, next) => {
     await connectDB();
     next();
   } catch (error) {
-    console.error("Database connection error in tienda routes:", error);
+    console.error("Database connection error in tienda (marcas) routes:", error);
     res.status(500).json({ 
       error: "Error de conexión con la base de datos" 
     });
@@ -35,10 +35,10 @@ router.get("/", async (req, res) => {
       tiendas
     });
   } catch (err) {
-    console.error("Error fetching tiendas:", err);
+    console.error("Error fetching marcas:", err);
     res.status(500).json({ 
       success: false,
-      error: "Error al obtener las tiendas",
+      error: "Error al obtener las marcas",
       details: process.env.NODE_ENV === 'development' ? err.message : undefined 
     });
   }
@@ -60,7 +60,7 @@ router.get("/:identifier", async (req, res) => {
     if (!store) {
       return res.status(404).json({ 
         success: false,
-        message: 'Tienda no encontrada' 
+        message: 'Marca no encontrada' 
       });
     }
     
@@ -69,10 +69,10 @@ router.get("/:identifier", async (req, res) => {
       store
     });
   } catch (error) {
-    console.error("Error fetching tienda:", error);
+    console.error("Error fetching marca:", error);
     res.status(500).json({ 
       success: false,
-      message: 'Error al obtener la tienda',
+      message: 'Error al obtener la marca',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined 
     });
   }
@@ -100,14 +100,14 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
     if (!storeName || !storeTag) {
       return res.status(400).json({ 
         success: false,
-        message: "Nombre y clave de tienda son obligatorios" 
+        message: "Nombre y clave de marca son obligatorios" 
       });
     }
 
     if (storeTag.length !== 4) {
       return res.status(400).json({ 
         success: false,
-        message: "La clave de tienda debe tener exactamente 4 caracteres" 
+        message: "La clave de marca debe tener exactamente 4 caracteres" 
       });
     }
 
@@ -119,7 +119,7 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
     if (existingStore) {
       return res.status(400).json({ 
         success: false,
-        message: "Ya existe una tienda con este nombre o clave" 
+        message: "Ya existe una marca con este nombre o clave" 
       });
     }
 
@@ -155,20 +155,20 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Tienda creada exitosamente",
+      message: "Marca creada exitosamente",
       store
     });
   } catch (error) {
-    console.error("Error creating tienda:", error);
+    console.error("Error creating marca:", error);
     
-    let errorMessage = "Error al crear la tienda";
+    let errorMessage = "Error al crear la marca";
     let statusCode = 500;
     
     if (error.name === 'ValidationError') {
-      errorMessage = "Datos de tienda inválidos";
+      errorMessage = "Datos de marca inválidos";
       statusCode = 400;
     } else if (error.code === 11000) {
-      errorMessage = "Ya existe una tienda con esta clave o nombre";
+      errorMessage = "Ya existe una marca con esta clave o nombre";
       statusCode = 400;
     }
     
@@ -201,7 +201,7 @@ router.put("/:storeId", requireAuth, requireAdmin, async (req, res) => {
     if (!store) {
       return res.status(404).json({ 
         success: false,
-        message: 'Tienda no encontrada' 
+        message: 'Marca no encontrada' 
       });
     }
 
@@ -215,7 +215,7 @@ router.put("/:storeId", requireAuth, requireAdmin, async (req, res) => {
       if (existingWithTag) {
         return res.status(400).json({ 
           success: false,
-          message: 'Ya existe otra tienda con esta clave' 
+          message: 'Ya existe otra marca con esta clave' 
         });
       }
     }
@@ -236,20 +236,20 @@ router.put("/:storeId", requireAuth, requireAdmin, async (req, res) => {
     
     res.json({
       success: true,
-      message: "Tienda actualizada exitosamente",
+      message: "Marca actualizada exitosamente",
       store
     });
   } catch (error) {
-    console.error("Error updating tienda:", error);
+    console.error("Error updating marca:", error);
     
-    let errorMessage = "Error al actualizar la tienda";
+    let errorMessage = "Error al actualizar la marca";
     let statusCode = 500;
     
     if (error.name === 'ValidationError') {
-      errorMessage = "Datos de tienda inválidos";
+      errorMessage = "Datos de marca inválidos";
       statusCode = 400;
     } else if (error.name === 'CastError') {
-      errorMessage = "ID de tienda inválido";
+      errorMessage = "ID de marca inválido";
       statusCode = 400;
     }
     
@@ -269,7 +269,7 @@ router.delete("/:storeId", requireAuth, requireAdmin, async (req, res) => {
     if (!store) {
       return res.status(404).json({ 
         success: false,
-        message: 'Tienda no encontrada' 
+        message: 'Marca no encontrada' 
       });
     }
 
@@ -277,23 +277,23 @@ router.delete("/:storeId", requireAuth, requireAdmin, async (req, res) => {
     
     res.json({ 
       success: true,
-      message: 'Tienda eliminada exitosamente',
+      message: 'Marca eliminada exitosamente',
       storeName: store.name,
       storeTag: store.tag
     });
   } catch (error) {
-    console.error("Error deleting tienda:", error);
+    console.error("Error deleting marca:", error);
     
     if (error.name === 'CastError') {
       return res.status(400).json({ 
         success: false,
-        message: "ID de tienda inválido" 
+        message: "ID de marca inválido" 
       });
     }
     
     res.status(500).json({ 
       success: false,
-      message: 'Error al eliminar la tienda',
+      message: 'Error al eliminar la marca',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined 
     });
   }
@@ -317,7 +317,7 @@ router.put("/:storeId/products/:productId", requireAuth, requireAdmin, async (re
     if (!store) {
       return res.status(404).json({ 
         success: false,
-        message: 'Tienda no encontrada' 
+        message: 'Marca no encontrada' 
       });
     }
 
@@ -358,7 +358,7 @@ router.put("/:storeId/products/:productId", requireAuth, requireAdmin, async (re
     let statusCode = 500;
     
     if (error.name === 'CastError') {
-      errorMessage = "ID de tienda o producto inválido";
+      errorMessage = "ID de marca o producto inválido";
       statusCode = 400;
     }
     
@@ -388,7 +388,7 @@ router.post("/:storeId/products", requireAuth, requireAdmin, async (req, res) =>
     if (!store) {
       return res.status(404).json({ 
         success: false,
-        message: 'Tienda no encontrada' 
+        message: 'Marca no encontrada' 
       });
     }
 
@@ -430,7 +430,7 @@ router.post("/:storeId/products", requireAuth, requireAdmin, async (req, res) =>
     let statusCode = 500;
     
     if (error.name === 'CastError') {
-      errorMessage = "ID de tienda inválido";
+      errorMessage = "ID de marca inválido";
       statusCode = 400;
     } else if (error.name === 'ValidationError') {
       errorMessage = "Datos de producto inválidos";
@@ -454,7 +454,7 @@ router.delete("/:storeId/products/:productId", requireAuth, requireAdmin, async 
     if (!store) {
       return res.status(404).json({ 
         success: false,
-        message: 'Tienda no encontrada' 
+        message: 'Marca no encontrada' 
       });
     }
 
@@ -482,7 +482,7 @@ router.delete("/:storeId/products/:productId", requireAuth, requireAdmin, async 
     if (error.name === 'CastError') {
       return res.status(400).json({ 
         success: false,
-        message: "ID de tienda o producto inválido" 
+        message: "ID de marca o producto inválido" 
       });
     }
     
