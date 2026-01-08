@@ -30,32 +30,57 @@ const Historial = ({ user }) => {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
   const fetchVentas = async () => {
-      try {
-        setLoading(true);
-        setError(null); // Resetear error
-        
-        console.log("Fetching sales from:", `${API_URL}/api/ventas/historial`);
-        
-        const response = await fetch(`${API_URL}/api/ventas/historial`);
-        
-        if (!response.ok) {
-          throw new Error(`Error HTTP: ${response.status}`);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log("Fetching sales from:", `${API_URL}/api/ventas/historial`);
+      
+      const response = await fetch(`${API_URL}/api/ventas/historial`, {
+        // Agrega estos headers
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include' // Solo si usas cookies/sesiones
+      });
+      
+      if (!response.ok) {
+        // Verifica si es error de CORS
+        if (response.status === 0) {
+          throw new Error('Error de CORS o conexión. Verifica que el backend esté corriendo y tenga CORS habilitado.');
         }
-        
-        const data = await response.json();
-        console.log("Sales fetched successfully:", data.length, "items");
-        setVentas(data);
-        setFilteredVentas(data);
-      } catch (error) {
-        console.error("Error fetching ventas:", error);
-        setError(`No se pudieron cargar las ventas: ${error.message}`);
-        
-        // Datos de ejemplo para debugging
-        setVentas([]);
-        setFilteredVentas([]);
-      } finally {
-        setLoading(false);
+        throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
       }
+      
+      const data = await response.json();
+      console.log("Sales fetched successfully:", data.length, "items");
+      setVentas(data);
+      setFilteredVentas(data);
+    } catch (error) {
+      console.error("Error fetching ventas:", error);
+      
+      // Mensaje más descriptivo
+      let errorMessage = `No se pudieron cargar las ventas: ${error.message}`;
+      
+      // Detectar si es error de CORS
+      if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+        errorMessage = `
+          Error de conexión con el backend. Posibles causas:
+          1. El backend no está corriendo en ${API_URL}
+          2. Error de CORS - verifica que el backend tenga CORS habilitado
+          3. Bloqueador de anuncios activo - intenta deshabilitarlo
+        `;
+      }
+      
+      setError(errorMessage);
+      
+      // Datos de ejemplo para debugging
+      setVentas([]);
+      setFilteredVentas([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
