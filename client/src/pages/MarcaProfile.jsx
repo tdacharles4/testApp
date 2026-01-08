@@ -126,7 +126,7 @@ const TiendaProfile = ({ user }) => {
       
       // Add product data
       if (editProductData.image) {
-        formData.append("productImage", editProductData.image);
+        formData.append("image", editProductData.image);
       }
       formData.append("productClave", editProductData.name.trim());
       formData.append("productNombre", editProductData.nombreProducto.trim());
@@ -144,17 +144,18 @@ const TiendaProfile = ({ user }) => {
       });
 
       if (response.ok) {
-        const updatedStore = await response.json();
-        setStore(updatedStore);
+        const data = await response.json();
+        setStore(data.store);
         setEditingProduct(null);
-        alert("Producto actualizado exitosamente");
+        alert(data.message || "Producto actualizado exitosamente");
       } else {
-        console.error("Error updating product");
-        alert("Error al actualizar el producto");
+        const errorData = await response.json();
+        console.error("Error updating product:", errorData);
+        alert(errorData.error || "Error al actualizar el producto");
       }
     } catch (error) {
       console.error("Error updating product:", error);
-      alert("Error al actualizar el producto");
+      alert("Error al actualizar el producto: " + error.message);
     }
   };
 
@@ -196,100 +197,67 @@ const TiendaProfile = ({ user }) => {
   };
 
     // Updated for Vercel Blob compatibility
-  const handleAddProduct = async () => {
-    try {
-      if (!newProduct.name.trim() || !newProduct.nombreProducto.trim()) {
-        alert("Por favor completa la clave y nombre del producto");
-        return;
-      }
-
-      // Placeholder image URL
-      const PLACEHOLDER_IMAGE = "/logo192.png";
-      let imageUrl = PLACEHOLDER_IMAGE;
-
-      // If there's an image, upload it to Vercel Blob
-      if (newProduct.image) {
-        try {
-          const token = localStorage.getItem("token");
-          console.log('🖼️ Uploading image with token:', token ? 'Yes' : 'No');
-          
-          // Test the token first
-          if (!token) {
-            console.warn('⚠️ No token in localStorage');
-            // Try to get it from another source
-            const altToken = localStorage.getItem("authToken") || localStorage.getItem("jwt");
-            console.log('🔍 Alternative tokens:', { altToken });
-          }
-          
-          // For debugging, also send token in Authorization header
-          const blob = await upload(newProduct.image.name, newProduct.image, {
-            access: 'public',
-            handleUploadUrl: `${API_URL}/api/upload`,
-            clientPayload: JSON.stringify({ 
-              token: token,
-              filename: newProduct.image.name,
-              timestamp: new Date().toISOString()
-            })
-          });
-          
-          console.log('✅ Upload response:', blob);
-          imageUrl = blob.url;
-          
-        } catch (uploadError) {
-          console.error("❌ Error uploading image:", uploadError);
-          console.error("❌ Full error object:", uploadError);
-          
-          // For testing, bypass the error temporarily
-          alert(`Advertencia: No se pudo subir la imagen. Se usará imagen por defecto.`);
+    const handleAddProduct = async () => {
+      try {
+        if (!newProduct.name.trim() || !newProduct.nombreProducto.trim()) {
+          alert("Por favor completa la clave y nombre del producto");
+          return;
         }
-      }
 
-      const payload = {
-        productClave: newProduct.name.trim(),
-        productNombre: newProduct.nombreProducto.trim(),
-        productDescription: newProduct.description.trim(),
-        productPrice: newProduct.price || "0",
-        productQuantity: newProduct.quantity.toString(),
-        productFechaRecepcion: newProduct.fechaRecepcion,
-        imageUrl: imageUrl
-      };
-
-      const response = await fetch(`${API_URL}/api/tiendas/${store._id}/products`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.store) {
-          setStore(data.store);
+        const formData = new FormData();
+        
+        // Add image file
+        if (newProduct.image) {
+          formData.append("image", newProduct.image);
         }
-        setShowAddProduct(false);
-        setNewProduct({
-          image: null,
-          name: "",
-          nombreProducto: "",
-          description: "",
-          price: "",
-          quantity: 1,  // Reset to 1 instead of 0
-          fechaRecepcionHoy: true,
-          fechaRecepcion: new Date().toISOString().split('T')[0]
+        
+        // Add all other product data
+        formData.append("productClave", newProduct.name.trim());
+        formData.append("productNombre", newProduct.nombreProducto.trim());
+        formData.append("productDescription", newProduct.description.trim());
+        formData.append("productPrice", newProduct.price || "0");
+        formData.append("productQuantity", newProduct.quantity.toString());
+        formData.append("productFechaRecepcion", newProduct.fechaRecepcion);
+
+        console.log('📤 Sending product with FormData');
+        
+        const response = await fetch(`${API_URL}/api/tiendas/${store._id}/products`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem("token")}`
+            // Note: NO 'Content-Type' header for FormData!
+            // The browser sets it automatically with boundary
+          },
+          body: formData,
         });
-        alert("Producto agregado exitosamente");
-      } else {
-        const errorData = await response.json();
-        console.error("Error agregando producto:", errorData);
-        alert(errorData.message || "Error al agregar el producto");
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.store) {
+            setStore(data.store);
+          }
+          setShowAddProduct(false);
+          setNewProduct({
+            image: null,
+            name: "",
+            nombreProducto: "",
+            description: "",
+            price: "",
+            quantity: 1,
+            fechaRecepcionHoy: true,
+            fechaRecepcion: new Date().toISOString().split('T')[0]
+          });
+          alert(data.message || "Producto agregado exitosamente");
+        } else {
+          const errorData = await response.json();
+          console.error("Error agregando producto:", errorData);
+          alert(errorData.error || errorData.message || "Error al agregar el producto");
+        }
+      } catch (error) {
+        console.error("Error agregando producto:", error);
+        alert("Error al agregar el producto: " + error.message);
       }
-    } catch (error) {
-      console.error("Error agregando producto:", error);
-      alert("Error al agregar el producto: " + error.message);
-    }
-  };
+    };
 
   const handleEditStore = async () => {
     try {

@@ -2,9 +2,25 @@ import express from "express";
 import requireAuth from "../middleware/requireAuth.js";
 import requireAdmin from "../middleware/requireAdmin.js";
 import Tienda from "../models/Tienda.js";
-import connectDB from "../config/db.js"; // Add this import
+import connectDB from "../config/db.js";
+import { put } from '@vercel/blob';
+import multer from 'multer';
 
 const router = express.Router();
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images only
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
+      return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+  }
+});
 
 // Middleware to ensure DB connection for tienda routes
 const ensureDB = async (req, res, next) => {
@@ -309,151 +325,226 @@ router.delete("/:storeId", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// Update product in a store (Vercel compatible - no file upload)
-router.put("/:storeId/products/:productId", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { storeId, productId } = req.params;
-    const { 
-      productClave, 
-      productNombre, 
-      productDescription, 
-      productPrice, 
-      productQuantity,
-      productFechaRecepcion,
-      imageBase64 // Optional: new base64 image
-    } = req.body;
+router.put("/:storeId/products/:productId", 
+  requireAuth, 
+  requireAdmin,
+  upload.single('image'), // ADD THIS MIDDLEWARE
+  async (req, res) => {
+    try {
+      const { storeId, productId } = req.params;
+      const { 
+        productClave, 
+        productNombre, 
+        productDescription, 
+        productPrice, 
+        productQuantity,
+        productFechaRecepcion
+      } = req.body;
 
-    const store = await Tienda.findById(storeId);
-    if (!store) {
-      return res.status(404).json({ 
+      const store = await Tienda.findById(storeId);
+      if (!store) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Marca no encontrada' 
+        });
+      }
+
+      const product = store.products.id(productId);
+      if (!product) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Producto no encontrado' 
+        });
+      }
+
+      // Handle new image upload if provided
+      if (req.file) {
+        console.log('🖼️ Uploading new image to Vercel Blob...');
+        
+        const filename = `products/${storeId}/${Date.now()}-${req.file.originalname
+          .replace(/\s+/g, '-')
+          .toLowerCase()}`;
+        
+        const blob = await put(
+          filename, 
+          req.file.buffer, 
+          { 
+            access: 'public',
+            contentType: req.file.mimetype
+          }
+        );
+        
+        product.imageUrl = blob.url;
+        console.log('✅ New image uploaded to:', blob.url);
+      }
+
+      // Update product fields
+      if (productClave !== undefined) {
+        product.clave = `${store.tag}-${productClave.toUpperCase()}`;
+      }
+      if (productNombre !== undefined) product.name = productNombre;
+      if (productDescription !== undefined) product.description = productDescription;
+      if (productPrice !== undefined) product.price = parseFloat(productPrice) || 0;
+      if (productQuantity !== undefined) product.quantity = parseInt(productQuantity) || 0;
+      if (productFechaRecepcion !== undefined) product.fechaRecepcion = productFechaRecepcion;
+
+      await store.save();
+      
+      res.json({
+        success: true,
+        message: "Producto actualizado exitosamente",
+        store
+      });
+    } catch (error) {
+      console.error("Error updating product:", error);
+      
+      // Handle file upload errors
+      if (error.message === 'Only image files are allowed!') {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Solo se permiten archivos de imagen (JPG, PNG, GIF, WebP)' 
+        });
+      }
+      
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ 
+          success: false,
+          message: 'La imagen es demasiado grande (máximo 10MB)' 
+        });
+      }
+      
+      let errorMessage = "Error al actualizar el producto";
+      let statusCode = 500;
+      
+      if (error.name === 'CastError') {
+        errorMessage = "ID de marca o producto inválido";
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({ 
         success: false,
-        message: 'Marca no encontrada' 
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined 
       });
     }
-
-    const product = store.products.id(productId);
-    if (!product) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Producto no encontrado' 
-      });
-    }
-
-    // Update product fields
-    if (productClave !== undefined) {
-      product.clave = productClave;
-    }
-    if (productNombre !== undefined) product.name = productNombre;
-    if (productDescription !== undefined) product.description = productDescription;
-    if (productPrice !== undefined) product.price = parseFloat(productPrice) || 0;
-    if (productQuantity !== undefined) product.quantity = parseInt(productQuantity) || 0;
-    if (productFechaRecepcion !== undefined) product.fechaRecepcion = productFechaRecepcion;
-    
-    // Update image if provided as base64
-    if (imageBase64) {
-      product.imageUrl = `data:image/jpeg;base64,${imageBase64}`;
-    }
-
-    await store.save();
-    
-    res.json({
-      success: true,
-      message: "Producto actualizado exitosamente",
-      store
-    });
-  } catch (error) {
-    console.error("Error updating product:", error);
-    
-    let errorMessage = "Error al actualizar el producto";
-    let statusCode = 500;
-    
-    if (error.name === 'CastError') {
-      errorMessage = "ID de marca o producto inválido";
-      statusCode = 400;
-    }
-    
-    res.status(statusCode).json({ 
-      success: false,
-      message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
   }
-});
+);
 
-// Add product to store (Vercel Blob compatible)
-router.post("/:storeId/products", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { storeId } = req.params;
-    const { 
-      productClave, 
-      productNombre, 
-      productDescription, 
-      productPrice, 
-      productQuantity,
-      productFechaRecepcion,
-      imageUrl  // Changed from imageBase64
-    } = req.body;
-    
-    const store = await Tienda.findById(storeId);
-    if (!store) {
-      return res.status(404).json({ 
+router.post("/:storeId/products", 
+  requireAuth, 
+  requireAdmin,
+  upload.single('image'), // ADD THIS MIDDLEWARE
+  async (req, res) => {
+    try {
+      const { storeId } = req.params;
+      const { 
+        productClave, 
+        productNombre, 
+        productDescription, 
+        productPrice, 
+        productQuantity,
+        productFechaRecepcion
+      } = req.body; // Note: Remove imageUrl from here
+      
+      const store = await Tienda.findById(storeId);
+      if (!store) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Marca no encontrada' 
+        });
+      }
+
+      if (!productClave || !productNombre) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Clave y nombre del producto son requeridos' 
+        });
+      }
+
+      // Handle image upload to Vercel Blob
+      let imageUrl = "/logo192.png"; // Default image
+      
+      if (req.file) {
+        console.log('🖼️ Uploading image to Vercel Blob...');
+        
+        // Generate a unique filename
+        const filename = `products/${storeId}/${Date.now()}-${req.file.originalname
+          .replace(/\s+/g, '-')
+          .toLowerCase()}`;
+        
+        const blob = await put(
+          filename, 
+          req.file.buffer, 
+          { 
+            access: 'public',
+            contentType: req.file.mimetype
+          }
+        );
+        
+        imageUrl = blob.url;
+        console.log('✅ Image uploaded to:', imageUrl);
+      }
+
+      // Generate final clave with store prefix
+      const finalClave = `${store.tag}-${productClave.toUpperCase()}`;
+      const price = parseFloat(productPrice) || 0;
+      const quantity = parseInt(productQuantity) || 0;
+
+      const newProduct = {
+        clave: finalClave,
+        name: productNombre,
+        description: productDescription || "",
+        imageUrl: imageUrl, // Use the uploaded or default URL
+        price: price,
+        quantity: quantity,
+        fechaRecepcion: productFechaRecepcion || new Date().toISOString().split('T')[0]
+      };
+
+      store.products.push(newProduct);
+      await store.save();
+
+      res.status(201).json({
+        success: true,
+        message: "Producto agregado exitosamente",
+        store
+      });
+    } catch (error) {
+      console.error("Error adding product:", error);
+      
+      // Handle file upload errors
+      if (error.message === 'Only image files are allowed!') {
+        return res.status(400).json({ 
+          success: false,
+          message: 'Solo se permiten archivos de imagen (JPG, PNG, GIF, WebP)' 
+        });
+      }
+      
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ 
+          success: false,
+          message: 'La imagen es demasiado grande (máximo 10MB)' 
+        });
+      }
+      
+      let errorMessage = "Error al agregar el producto";
+      let statusCode = 500;
+      
+      if (error.name === 'CastError') {
+        errorMessage = "ID de marca inválido";
+        statusCode = 400;
+      } else if (error.name === 'ValidationError') {
+        errorMessage = "Datos de producto inválidos";
+        statusCode = 400;
+      }
+      
+      res.status(statusCode).json({ 
         success: false,
-        message: 'Marca no encontrada' 
+        message: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined 
       });
     }
-
-    if (!productClave || !productNombre) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Clave y nombre del producto son requeridos' 
-      });
-    }
-
-    // Generate final clave with store prefix
-    const finalClave = `${store.tag}-${productClave.toUpperCase()}`;
-    const price = parseFloat(productPrice) || 0;
-    const quantity = parseInt(productQuantity) || 0;
-
-    const newProduct = {
-      clave: finalClave,
-      name: productNombre,
-      description: productDescription || "",
-      // Use provided imageUrl or placeholder
-      imageUrl: imageUrl || "/logo192.png",
-      price: price,
-      quantity: quantity,
-      fechaRecepcion: productFechaRecepcion || new Date().toISOString().split('T')[0]
-    };
-
-    store.products.push(newProduct);
-    await store.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Producto agregado exitosamente",
-      store
-    });
-  } catch (error) {
-    console.error("Error adding product:", error);
-    
-    let errorMessage = "Error al agregar el producto";
-    let statusCode = 500;
-    
-    if (error.name === 'CastError') {
-      errorMessage = "ID de marca inválido";
-      statusCode = 400;
-    } else if (error.name === 'ValidationError') {
-      errorMessage = "Datos de producto inválidos";
-      statusCode = 400;
-    }
-    
-    res.status(statusCode).json({ 
-      success: false,
-      message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
   }
-});
+);
 
 // Delete product from store
 router.delete("/:storeId/products/:productId", requireAuth, requireAdmin, async (req, res) => {
