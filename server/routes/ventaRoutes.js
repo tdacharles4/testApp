@@ -22,24 +22,21 @@ const generateSaleId = async () => {
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
   const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const datePrefix = `${year}${month}`;
   
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  
+  // Buscar la última venta del mes actual
   const lastSale = await Venta.findOne({
-    date: {
-      $gte: firstDayOfMonth.toLocaleDateString("es-MX"),
-      $lte: lastDayOfMonth.toLocaleDateString("es-MX")
-    }
-  }).sort({ saleId: -1 });
+    saleId: { $regex: `^${datePrefix}` }
+  }).sort({ saleId: -1 }).limit(1);
   
   let sequenceNumber = 1;
   if (lastSale && lastSale.saleId) {
+    // Extraer el número de secuencia del saleId existente
     const lastSequence = parseInt(lastSale.saleId.slice(-4));
     sequenceNumber = lastSequence + 1;
   }
   
-  return `${year}${month}${sequenceNumber.toString().padStart(4, '0')}`;
+  return `${datePrefix}${sequenceNumber.toString().padStart(4, '0')}`;
 };
 
 // Get current stock for a specific product in a store
@@ -221,8 +218,21 @@ router.put("/stock/update", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/generar-saleid", requireAuth, async (req, res) => {
+  try {
+    const saleId = await generateSaleId();
+    res.json({ saleId });
+  } catch (error) {
+    console.error("Error generando saleId:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Create new sale
 router.post("/crear", requireAuth, async (req, res) => {
+  const session = await Venta.startSession();
+  session.startTransaction();
+  
   try {
     const { 
       store, 
@@ -237,27 +247,39 @@ router.post("/crear", requireAuth, async (req, res) => {
       amountTarjeta, 
       amountTransferencia,
       storeContractType,
-      storeContractValue
+      storeContractValue,
+      saleId: providedSaleId // Opcional: saleId proporcionado por el frontend
     } = req.body;
 
     // Find the store and product
     const currentStore = await Tienda.findOne({ tag: store });
     if (!currentStore) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: "Marca no encontrada" });
     }
     
     const currentItem = currentStore.products.find(p => p.clave === item);
     if (!currentItem) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(404).json({ message: "Producto no encontrado" });
     }
 
     // Check if product has sufficient stock
     if (currentItem.quantity <= 0) {
+      await session.abortTransaction();
+      session.endSession();
       return res.status(400).json({ message: "No hay suficiente stock para este producto" });
     }
 
-    // Generate sale ID
-    const saleId = await generateSaleId();
+    // Generar saleId (usar el proporcionado o generar uno nuevo)
+    let saleId;
+    if (providedSaleId) {
+      saleId = providedSaleId;
+    } else {
+      saleId = await generateSaleId();
+    }
 
     const venta = new Venta({
       saleId,
@@ -284,7 +306,7 @@ router.post("/crear", requireAuth, async (req, res) => {
       date: date || new Date().toLocaleDateString("es-MX")
     });
 
-    await venta.save();
+    await venta.save({ session });
 
     // Update product quantity in the store (reduce by 1)
     await Tienda.findOneAndUpdate(
@@ -294,8 +316,12 @@ router.post("/crear", requireAuth, async (req, res) => {
       },
       { 
         $inc: { "products.$.quantity": -1 } 
-      }
+      },
+      { session }
     );
+
+    await session.commitTransaction();
+    session.endSession();
 
     await venta.populate("user", "name username email");
     
@@ -305,7 +331,116 @@ router.post("/crear", requireAuth, async (req, res) => {
       message: "Venta registrada y stock actualizado exitosamente"
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     console.error("Error creating sale:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+//Ventas lote
+router.post("/crear-lote", requireAuth, async (req, res) => {
+  const session = await Venta.startSession();
+  session.startTransaction();
+  
+  try {
+    const ventasData = req.body; // Array de ventas
+    const saleId = await generateSaleId(); // Un solo saleId para todo el lote
+    const resultados = [];
+    
+    for (const ventaData of ventasData) {
+      const { 
+        store, 
+        item, 
+        amount, 
+        originalPrice, 
+        discountAmount, 
+        discountPercentage, 
+        discountType, 
+        date, 
+        amountEfectivo, 
+        amountTarjeta, 
+        amountTransferencia,
+        storeContractType,
+        storeContractValue
+      } = ventaData;
+
+      // Find the store and product
+      const currentStore = await Tienda.findOne({ tag: store });
+      if (!currentStore) {
+        throw new Error(`Marca ${store} no encontrada`);
+      }
+      
+      const currentItem = currentStore.products.find(p => p.clave === item);
+      if (!currentItem) {
+        throw new Error(`Producto ${item} no encontrado`);
+      }
+
+      // Check if product has sufficient stock
+      if (currentItem.quantity <= 0) {
+        throw new Error(`No hay suficiente stock para ${currentItem.name}`);
+      }
+
+      const venta = new Venta({
+        saleId, // Mismo saleId para todas las ventas del lote
+        store: {
+          tag: currentStore.tag,
+          name: currentStore.name
+        },
+        item: {
+          clave: currentItem.clave,
+          name: currentItem.name,
+          price: currentItem.price
+        },
+        user: req.user._id,
+        amount,
+        originalPrice: originalPrice || amount,
+        discountAmount: discountAmount || 0,
+        discountPercentage: discountPercentage || 0,
+        discountType: discountType || "none",
+        amountEfectivo: amountEfectivo || 0,
+        amountTarjeta: amountTarjeta || 0,
+        amountTransferencia: amountTransferencia || 0,
+        storeContractType: storeContractType || currentStore.contractType,
+        storeContractValue: storeContractValue || currentStore.contractValue || 0,
+        date: date || new Date().toLocaleDateString("es-MX")
+      });
+
+      await venta.save({ session });
+
+      // Update product quantity in the store (reduce by 1)
+      await Tienda.findOneAndUpdate(
+        { 
+          "tag": store,
+          "products.clave": item 
+        },
+        { 
+          $inc: { "products.$.quantity": -1 } 
+        },
+        { session }
+      );
+
+      resultados.push(venta);
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Popular usuario en los resultados
+    await Promise.all(
+      resultados.map(v => v.populate("user", "name username email"))
+    );
+    
+    res.status(201).json({
+      success: true,
+      ventas: resultados,
+      saleId, // Devolver el saleId generado
+      message: `${resultados.length} ventas registradas exitosamente con saleId: ${saleId}`
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error creating batch sales:", error);
     res.status(500).json({ message: error.message });
   }
 });

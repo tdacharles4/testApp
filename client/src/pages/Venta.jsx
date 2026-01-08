@@ -341,49 +341,40 @@ export default function Venta() {
     setShowConfirmationModal(false);
 
     try {
-      const results = [];
-      const errors = [];
-      
-      // Procesar cada venta individualmente
-      for (const [index, sale] of cart.entries()) {
-        try {
-          const saleWithId = {
-            ...sale,
-            saleId: generateSaleId()
-          };
-
-          const response = await fetch(`${API_URL}/api/ventas/crear`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${localStorage.getItem("token")}`
-            },
-            body: JSON.stringify(saleWithId),
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            errors.push(`Venta ${index + 1} (${sale.itemName}): ${error.message}`);
-            continue;
-          }
-
-          const result = await response.json();
-          results.push(result);
-
-          // Pequeña pausa para evitar sobrecargar
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-        } catch (error) {
-          errors.push(`Venta ${index + 1} (${sale.itemName}): ${error.message}`);
+      // Generar un saleId único para todo el carrito
+      const saleIdResponse = await fetch(`${API_URL}/api/ventas/generar-saleid`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
         }
+      });
+      
+      if (!saleIdResponse.ok) {
+        throw new Error("Error generando saleId");
+      }
+      
+      const { saleId } = await saleIdResponse.json();
+
+      // Enviar todas las ventas en un solo lote
+      const response = await fetch(`${API_URL}/api/ventas/crear-lote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify(cart.map(sale => ({
+          ...sale,
+          saleId // Asignar el mismo saleId a todas
+        })))
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Error al procesar ventas");
       }
 
-      // Mostrar resultados
-      if (errors.length > 0) {
-        alert(`⚠️ Se completaron ${results.length} ventas, pero hubo ${errors.length} errores:\n\n${errors.join("\n")}`);
-      } else {
-        alert(`✅ ${results.length} ventas registradas exitosamente`);
-      }
+      const result = await response.json();
+      alert(`✅ ${result.ventas.length} ventas registradas exitosamente con saleId: ${result.saleId}`);
 
       // Limpiar y resetear
       setCart([]);
