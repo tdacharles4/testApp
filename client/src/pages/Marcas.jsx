@@ -12,26 +12,35 @@ export default function Marcas({ user }) {
   }, []);
 
   const fetchBrands = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      
-      // Use the full backend URL with port 5000
-      const response = await fetch("http://localhost:5000/api/tiendas");
-      
-      // Check if response is OK
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      try {
+        setLoading(true);
+        setError("");
+        
+        // Use environment variable for API URL
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+        const response = await fetch(`${API_URL}/api/tiendas`);
+        
+        // Check if response is OK
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Backend returns { success: true, count: X, tiendas: [...] }
+        // So we need to use data.tiendas instead of data directly
+        if (data.success && Array.isArray(data.tiendas)) {
+          setBrands(data.tiendas);
+        } else {
+          // Fallback in case structure is different
+          setBrands(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Error fetching brands:", err);
+        setError(err.message || "Error al cargar las marcas");
+      } finally {
+        setLoading(false);
       }
-      
-      const data = await response.json();
-      setBrands(data);
-    } catch (err) {
-      console.error("Error fetching brands:", err);
-      setError(err.message || "Error al cargar las marcas");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleBrandClick = (brand) => {
