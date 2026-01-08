@@ -25,6 +25,10 @@ function App() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  useEffect(() => {
+    document.title = "Portal Estetica Unisex";
+  }, []);
+
   // Check for existing user session on initial load
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
