@@ -57,21 +57,42 @@ const TiendaProfile = ({ user }) => {
       try {
         const response = await fetch(`${API_URL}/api/tiendas/${storeName}`);
         const data = await response.json();
-        setStore(data);
-        // Initialize edit form with current store data
-        setEditStoreData({
-          storeName: data.name || "",
-          storeTag: data.tag || "",
-          storeDescription: data.description || "",
-          contractType: data.contractType || "",
-          contractPercentage: data.contractValue || "",
-          contractPiso: data.contractValue || "",
-          contacto: data.contacto || "",
-          banco: data.banco || "",
-          numeroCuenta: data.numeroCuenta || "",
-          clabe: data.clabe || "",
-          tarjeta: data.tarjeta || ""
-        });
+        
+        // Backend returns { success: true, store: {...} }
+        // So we need to use data.store instead of data directly
+        if (data.success && data.store) {
+          setStore(data.store);
+          // Initialize edit form with current store data
+          setEditStoreData({
+            storeName: data.store.name || "",
+            storeTag: data.store.tag || "",
+            storeDescription: data.store.description || "",
+            contractType: data.store.contractType || "",
+            contractPercentage: data.store.contractValue || "",
+            contractPiso: data.store.contractValue || "",
+            contacto: data.store.contacto || "",
+            banco: data.store.banco || "",
+            numeroCuenta: data.store.numeroCuenta || "",
+            clabe: data.store.clabe || "",
+            tarjeta: data.store.tarjeta || ""
+          });
+        } else {
+          // Fallback for different response structure
+          setStore(data);
+          setEditStoreData({
+            storeName: data.name || "",
+            storeTag: data.tag || "",
+            storeDescription: data.description || "",
+            contractType: data.contractType || "",
+            contractPercentage: data.contractValue || "",
+            contractPiso: data.contractValue || "",
+            contacto: data.contacto || "",
+            banco: data.banco || "",
+            numeroCuenta: data.numeroCuenta || "",
+            clabe: data.clabe || "",
+            tarjeta: data.tarjeta || ""
+          });
+        }
       } catch (error) {
         console.error("Error fetching store data:", error);
       } finally {
@@ -174,31 +195,58 @@ const TiendaProfile = ({ user }) => {
 
   const handleAddProduct = async () => {
     try {
-      if (!newProduct.name.trim() || !newProduct.image || !newProduct.nombreProducto.trim()) {
-        alert("Por favor completa la clave, nombre y selecciona una imagen del producto");
+      if (!newProduct.name.trim() || !newProduct.nombreProducto.trim()) {
+        alert("Por favor completa la clave y nombre del producto");
         return;
       }
 
-      const formData = new FormData();
-      formData.append("productImage", newProduct.image);
-      formData.append("productClave", newProduct.name.trim());
-      formData.append("productNombre", newProduct.nombreProducto.trim());
-      formData.append("productDescription", newProduct.description.trim());
-      formData.append("productPrice", newProduct.price || "0");
-      formData.append("productQuantity", newProduct.quantity.toString());
-      formData.append("productFechaRecepcion", newProduct.fechaRecepcion);
+      // Placeholder image URL
+      const PLACEHOLDER_IMAGE = "/logo192.png";
+      let imageUrl = PLACEHOLDER_IMAGE;
+
+      // If there's an image, upload it to Vercel Blob
+      if (newProduct.image) {
+        try {
+          const token = localStorage.getItem("token");
+          const { upload } = await import('@vercel/blob/client');
+          
+          const blob = await upload(newProduct.image.name, newProduct.image, {
+            access: 'public',
+            handleUploadUrl: `${API_URL}/api/upload`,
+            clientPayload: JSON.stringify({ token })
+          });
+          imageUrl = blob.url;
+        } catch (uploadError) {
+          console.error("Error uploading image:", uploadError);
+          alert(`Advertencia: No se pudo subir la imagen. Se usará imagen por defecto.`);
+        }
+      }
+
+      const payload = {
+        productClave: newProduct.name.trim(),
+        productNombre: newProduct.nombreProducto.trim(),
+        productDescription: newProduct.description.trim(),
+        productPrice: newProduct.price || "0",
+        productQuantity: newProduct.quantity.toString(),
+        productFechaRecepcion: newProduct.fechaRecepcion,
+        imageUrl: imageUrl
+      };
 
       const response = await fetch(`${API_URL}/api/tiendas/${store._id}/products`, {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
-        body: formData,
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
-        const updatedStore = await response.json();
-        setStore(updatedStore);
+        const data = await response.json();
+        // Backend returns { success: true, message: "...", store: {...} }
+        if (data.success && data.store) {
+          setStore(data.store);
+        }
         setShowAddProduct(false);
         setNewProduct({
           image: null,
@@ -212,8 +260,9 @@ const TiendaProfile = ({ user }) => {
         });
         alert("Producto agregado exitosamente");
       } else {
-        console.error("Error agregando producto");
-        alert("Error al agregar el producto");
+        const errorData = await response.json();
+        console.error("Error agregando producto:", errorData);
+        alert(errorData.message || "Error al agregar el producto");
       }
     } catch (error) {
       console.error("Error agregando producto:", error);

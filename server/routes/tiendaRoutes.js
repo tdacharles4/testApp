@@ -380,7 +380,7 @@ router.put("/:storeId/products/:productId", requireAuth, requireAdmin, async (re
   }
 });
 
-// Add product to store (Vercel compatible - no file upload)
+// Add product to store (Vercel Blob compatible)
 router.post("/:storeId/products", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { storeId } = req.params;
@@ -391,7 +391,7 @@ router.post("/:storeId/products", requireAuth, requireAdmin, async (req, res) =>
       productPrice, 
       productQuantity,
       productFechaRecepcion,
-      imageBase64 
+      imageUrl  // Changed from imageBase64
     } = req.body;
     
     const store = await Tienda.findById(storeId);
@@ -418,8 +418,8 @@ router.post("/:storeId/products", requireAuth, requireAdmin, async (req, res) =>
       clave: finalClave,
       name: productNombre,
       description: productDescription || "",
-      // Store base64 image or use placeholder
-      imageUrl: imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : null,
+      // Use provided imageUrl or placeholder
+      imageUrl: imageUrl || "/logo192.png",
       price: price,
       quantity: quantity,
       fechaRecepcion: productFechaRecepcion || new Date().toISOString().split('T')[0]
