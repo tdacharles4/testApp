@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { upload } from '@vercel/blob/client';
 
 const TiendaProfile = ({ user }) => {
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -12,6 +13,7 @@ const TiendaProfile = ({ user }) => {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showEditStore, setShowEditStore] = useState(false);
   
+  
   // New product state matching CrearTienda structure
   const [newProduct, setNewProduct] = useState({
     image: null,
@@ -19,7 +21,7 @@ const TiendaProfile = ({ user }) => {
     nombreProducto: "",
     description: "",
     price: "",
-    quantity: 0,
+    quantity: 1,
     fechaRecepcionHoy: true,
     fechaRecepcion: new Date().toISOString().split('T')[0]
   });
@@ -193,6 +195,7 @@ const TiendaProfile = ({ user }) => {
     }
   };
 
+    // Updated for Vercel Blob compatibility
   const handleAddProduct = async () => {
     try {
       if (!newProduct.name.trim() || !newProduct.nombreProducto.trim()) {
@@ -208,16 +211,32 @@ const TiendaProfile = ({ user }) => {
       if (newProduct.image) {
         try {
           const token = localStorage.getItem("token");
-          const { upload } = await import('@vercel/blob/client');
+          console.log('Starting upload...', {
+            filename: newProduct.image.name,
+            size: newProduct.image.size,
+            type: newProduct.image.type,
+            API_URL: API_URL
+          });
           
           const blob = await upload(newProduct.image.name, newProduct.image, {
             access: 'public',
             handleUploadUrl: `${API_URL}/api/upload`,
             clientPayload: JSON.stringify({ token })
           });
+          
+          console.log('Upload response full object:', blob);
+          console.log('Upload response keys:', Object.keys(blob));
+          console.log('Upload response URL property:', blob.url);
+          
           imageUrl = blob.url;
+          
+          if (!imageUrl) {
+            console.warn('No URL in blob response, using placeholder');
+            imageUrl = "/logo192.png";
+          }
         } catch (uploadError) {
           console.error("Error uploading image:", uploadError);
+          console.error("Error details:", uploadError.message);
           alert(`Advertencia: No se pudo subir la imagen. Se usará imagen por defecto.`);
         }
       }
@@ -243,7 +262,6 @@ const TiendaProfile = ({ user }) => {
 
       if (response.ok) {
         const data = await response.json();
-        // Backend returns { success: true, message: "...", store: {...} }
         if (data.success && data.store) {
           setStore(data.store);
         }
@@ -254,7 +272,7 @@ const TiendaProfile = ({ user }) => {
           nombreProducto: "",
           description: "",
           price: "",
-          quantity: 0,
+          quantity: 1,  // Reset to 1 instead of 0
           fechaRecepcionHoy: true,
           fechaRecepcion: new Date().toISOString().split('T')[0]
         });
@@ -266,7 +284,7 @@ const TiendaProfile = ({ user }) => {
       }
     } catch (error) {
       console.error("Error agregando producto:", error);
-      alert("Error al agregar el producto");
+      alert("Error al agregar el producto: " + error.message);
     }
   };
 
@@ -1278,7 +1296,7 @@ const TiendaProfile = ({ user }) => {
                       border: "1px solid #ccc",
                       borderRadius: "6px",
                       fontSize: "15px",
-                      background: newProduct.image ? "white" : "#f8f9fa",
+                      background: "white",
                       boxSizing: "border-box"
                     }}
                     placeholder="Ej: PROD001"
@@ -1306,7 +1324,7 @@ const TiendaProfile = ({ user }) => {
                     border: "1px solid #ccc",
                     borderRadius: "6px",
                     fontSize: "15px",
-                    background: newProduct.image ? "white" : "#f8f9fa",
+                    background: "white",
                     boxSizing: "border-box"
                   }}
                   placeholder="Ej: Camiseta Básica Negra"
@@ -1334,7 +1352,7 @@ const TiendaProfile = ({ user }) => {
                     fontSize: "15px",
                     minHeight: "80px",
                     resize: "vertical",
-                    background: newProduct.image ? "white" : "#f8f9fa",
+                    background: "white",
                     boxSizing: "border-box"
                   }}
                   placeholder="Descripción del producto..."
@@ -1376,7 +1394,7 @@ const TiendaProfile = ({ user }) => {
                         border: "1px solid #ccc",
                         borderRadius: "6px",
                         fontSize: "15px",
-                        background: newProduct.image ? "white" : "#f8f9fa",
+                        background: "white",
                         boxSizing: "border-box"
                       }}
                       placeholder="0.00"
@@ -1398,11 +1416,11 @@ const TiendaProfile = ({ user }) => {
                     display: "flex", 
                     alignItems: "center", 
                     gap: "12px",
-                    background: newProduct.image ? "white" : "#f8f9fa",
+                    background: "white",
                     border: "1px solid #ccc",
                     borderRadius: "6px",
                     padding: "8px",
-                    opacity: newProduct.image ? 1 : 0.6
+                    opacity: 1
                   }}>
                     <button
                       onClick={() => handleNewProductQuantity(newProduct.quantity - 1)}
@@ -1412,7 +1430,7 @@ const TiendaProfile = ({ user }) => {
                         border: "none",
                         borderRadius: "6px",
                         padding: "8px 12px",
-                        cursor: newProduct.image ? "pointer" : "not-allowed",
+                        cursor: "pointer",
                         fontSize: "16px",
                         fontWeight: "bold",
                         minWidth: "40px"
@@ -1439,7 +1457,7 @@ const TiendaProfile = ({ user }) => {
                         border: "none",
                         borderRadius: "6px",
                         padding: "8px 12px",
-                        cursor: newProduct.image ? "pointer" : "not-allowed",
+                        cursor: "pointer",
                         fontSize: "16px",
                         fontWeight: "bold",
                         minWidth: "40px"
@@ -1478,7 +1496,7 @@ const TiendaProfile = ({ user }) => {
                       onChange={(e) => handleNewProductFechaRecepcionHoy(e.target.checked)}
                       style={{ transform: "scale(1.2)" }}
                     />
-                    <span style={{ opacity: newProduct.image ? 1 : 0.6 }}>
+                    <span style={{ opacity: 1}}>
                       La fecha de recepción es hoy
                     </span>
                   </label>
@@ -1505,7 +1523,7 @@ const TiendaProfile = ({ user }) => {
                           border: "1px solid #ccc",
                           borderRadius: "6px",
                           fontSize: "14px",
-                          background: newProduct.image ? "white" : "#f8f9fa",
+                          background: "white",
                           boxSizing: "border-box"
                         }}
                       />
@@ -1529,7 +1547,7 @@ const TiendaProfile = ({ user }) => {
                   fontWeight: "bold"
                 }}
                 onClick={handleAddProduct}
-                disabled={!newProduct.name.trim() || !newProduct.image || !newProduct.nombreProducto.trim()}
+                disabled={!newProduct.name.trim() || !newProduct.nombreProducto.trim()}
               >
                 Agregar Producto
               </button>
