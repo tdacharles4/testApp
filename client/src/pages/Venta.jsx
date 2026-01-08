@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export default function Entrada() {
+export default function Venta() {
   const [stores, setStores] = useState([]);
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);

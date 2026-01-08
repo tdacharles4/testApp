@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 // Pages
 import MainPage from "./pages/MainPage.jsx";
 import Login from "./pages/Login.jsx";
-import Entrada from "./pages/Entrada.jsx";
+import Venta from "./pages/Venta.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Historial from "./pages/Historial.jsx";
 import Inventario from "./pages/Inventario.jsx";
@@ -119,9 +119,9 @@ function App() {
 
               {/* Protected routes */}
               <Route
-                path="/registroEntrada"
+                path="/vender"
                 element={
-                  user ? <Entrada user={user} /> : <Navigate to="/login" replace />
+                  user ? <Venta user={user} /> : <Navigate to="/login" replace />
                 }
               />
 

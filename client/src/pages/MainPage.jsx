@@ -10,9 +10,9 @@ export default function MainPage({user}) {
         <button
           className="main-btn"
           disabled={!user}
-          onClick={() => user && navigate("/registroEntrada")}
+          onClick={() => user && navigate("/vender")}
         >
-          Registrar Entrada
+          Vender articulos
         </button>
 
         <button
