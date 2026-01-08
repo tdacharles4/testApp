@@ -19,9 +19,10 @@ const Inventario = ({ user }) => {
   });
   const [showFilterDropdown, setShowFilterDropdown] = useState(null);
   const navigate = useNavigate();
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
   useEffect(() => {
-  fetch("http://localhost:5000/api/tiendas")
+  fetch(`${API_URL}/api/tiendas`)
     .then((res) => res.json())
     .then((data) => {
       // Don't set stores since we're not using it
@@ -625,7 +626,9 @@ const Inventario = ({ user }) => {
 
             {selectedProduct.imageUrl && (
               <img
-                src={`http://localhost:5000${selectedProduct.imageUrl}`}
+                src={selectedProduct.imageUrl?.startsWith('http') 
+                ? selectedProduct.imageUrl  // Vercel Blob URL
+                : `${API_URL}${selectedProduct.imageUrl}`}  // Local URL
                 alt="producto"
                 style={{
                   width: "100%",
