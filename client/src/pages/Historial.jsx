@@ -18,7 +18,7 @@ const Historial = ({ user }) => {
     registra: { active: false, selected: [] } // New filter for registra
   });
 
-  const [showFilter, setShowFilter] = useState({
+  const [showFilter, setShowFilter] = useState({ //random note
     date: false,
     codigo: false,
     marca: false,
