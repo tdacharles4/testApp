@@ -46,7 +46,7 @@ export default function CrearMarca({ user }) {
     }, 500); // Wait 500ms after user stops typing
     
     return () => clearTimeout(timeoutId);
-  }, [storeName]);
+  }, [storeName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if tag exists in database
 const checkTagExists = async (tag) => {
