@@ -7,6 +7,7 @@ const Historial = ({ user }) => {
   const [expandedPagos, setExpandedPagos] = useState({});
   const [editMode, setEditMode] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [error, setError] = useState(null);
 
   // Filter states
   const [filters, setFilters] = useState({
